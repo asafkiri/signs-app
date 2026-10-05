@@ -70,56 +70,85 @@ function star(c, cx, cy, rx, ry) {
 }
 export function drawOutdoor(c, s, x, y, w, h) {
   c.save(); c.translate(x, y); c.scale(w / 1000, h / 700); rect(c, 0, 0, 1000, 700, '#fff');
-  const t = s.template;
-  const b = { x: 55, y: 162, w: 890, h: 144 };
-  let pb = { x: 70, y: 345, w: 860, h: 218 }, titleColor = '#000';
+  const t = s.template || 'frame';
+  const titleBox = { x: 55, y: 145, w: 890, h: 150 };
+  const storeLine = () => fitText(c, s.store, { x: 60, y: 30, w: 250, h: 32 }, 23, '#000', 1, 700);
+  const offer = (box, color = '#000') => price(c, s, box, color);
+  const bottom = () => footer(c, s, 70, 610, 860, 62);
+
   if (t === 'frame') {
-    rect(c, 7, 7, 986, 686, null, '#000', 7, 12); rect(c, 22, 22, 956, 656, null, '#000', 2, 7);
-    rect(c, 342, 33, 316, 83, '#000', null, 0, 5); fitText(c, s.banner, { x: 353, y: 39, w: 294, h: 69 }, 59, '#fff', 1);
-    rule(c, 80, 328, 920, 328, 3); rule(c, 80, 577, 920, 577, 3);
+    // קלאסי אגרסיבי: מסגרת עבה, פס מבצע, מחיר שתופס את מרכז הדף.
+    rect(c, 8, 8, 984, 684, null, '#000', 10, 8);
+    rect(c, 27, 27, 946, 646, null, '#000', 3, 4);
+    rect(c, 310, 34, 380, 92, '#000', null, 0, 8);
+    fitText(c, s.banner || 'מבצע!', { x: 330, y: 45, w: 340, h: 67 }, 62, '#fff', 1);
+    storeLine();
+    fitText(c, s.title, titleBox, 104, '#000', 2);
+    if (s.subtitle) fitText(c, s.subtitle, { x: 90, y: 285, w: 820, h: 45 }, 34, '#000', 1, 700);
+    rect(c, 55, 342, 890, 236, '#000', null, 0, 16);
+    offer({ x: 80, y: 350, w: 840, h: 218 }, '#fff');
+    bottom();
   } else if (t === 'banner') {
-    rect(c, 8, 8, 984, 684, null, '#000', 5); rect(c, 8, 8, 984, 128, '#000');
-    fitText(c, s.banner, { x: 80, y: 18, w: 840, h: 79 }, 69, '#fff', 1);
-    fitText(c, s.store, { x: 100, y: 101, w: 800, h: 24 }, 21, '#fff', 1, 500);
-    rule(c, 250, 328, 750, 328, 5); pb = { x: 50, y: 343, w: 900, h: 230 };
+    // כותרת שחורה: הרבה שחור, מעט מלל, מחיר לבן ענק.
+    rect(c, 8, 8, 984, 684, null, '#000', 7);
+    rect(c, 8, 8, 984, 150, '#000');
+    fitText(c, s.banner || 'מבצע!', { x: 220, y: 25, w: 560, h: 82 }, 78, '#fff', 1);
+    fitText(c, s.store, { x: 250, y: 112, w: 500, h: 26 }, 22, '#fff', 1, 500);
+    fitText(c, s.title, { x: 55, y: 174, w: 890, h: 135 }, 102, '#000', 2);
+    rect(c, 42, 329, 916, 256, '#000');
+    offer({ x: 65, y: 339, w: 870, h: 230 }, '#fff');
+    bottom();
   } else if (t === 'burst') {
-    rect(c, 10, 10, 980, 680, null, '#000', 4); fitText(c, s.banner, { x: 280, y: 55, w: 440, h: 75 }, 61, '#000', 1);
-    rule(c, 65, 99, 240, 99, 9); rule(c, 760, 99, 935, 99, 9); star(c, 500, 449, 457, 127);
-    pb = { x: 120, y: 357, w: 760, h: 190 };
+    // כוכב מבצע אמיתי: הכוכב הוא המחיר, לא קישוט קטן סביבו.
+    rect(c, 8, 8, 984, 684, null, '#000', 6);
+    fitText(c, s.banner || 'מבצע!', { x: 300, y: 28, w: 400, h: 70 }, 61, '#000', 1);
+    fitText(c, s.title, { x: 65, y: 105, w: 870, h: 135 }, 92, '#000', 2);
+    star(c, 500, 435, 465, 175);
+    offer({ x: 105, y: 337, w: 790, h: 205 });
+    fitText(c, s.store, { x: 320, y: 620, w: 360, h: 30 }, 23, '#000', 1, 600);
+    bottom();
   } else if (t === 'ticket') {
-    rect(c, 18, 18, 964, 664, null, '#000', 6, 24); c.save(); c.setLineDash([10, 10]); rect(c, 36, 36, 928, 628, null, '#000', 2, 16); c.restore();
-    rect(c, 315, 55, 370, 75, '#000', null, 0, 38); fitText(c, s.banner, { x: 333, y: 59, w: 334, h: 65 }, 52, '#fff', 1);
-    rule(c, 53, 340, 947, 340, 3, [12, 10]);
-    for (const tx of [18, 982]) { c.beginPath(); c.arc(tx, 340, 20, 0, 2 * Math.PI); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = '#000'; c.lineWidth = 4; c.stroke(); }
-    pb = { x: 72, y: 356, w: 856, h: 206 };
+    // קופון: שובר מודפס גדול עם תלישה, אך עדיין המחיר הוא האלמנט הראשי.
+    rect(c, 15, 15, 970, 670, null, '#000', 9, 25);
+    c.save(); c.setLineDash([14, 10]); rect(c, 36, 36, 928, 628, null, '#000', 3, 16); c.restore();
+    rect(c, 300, 43, 400, 80, '#000', null, 0, 40);
+    fitText(c, s.banner || 'מבצע!', { x: 330, y: 50, w: 340, h: 64 }, 55, '#fff', 1);
+    fitText(c, s.title, { x: 65, y: 145, w: 870, h: 135 }, 96, '#000', 2);
+    rule(c, 55, 305, 945, 305, 3, [15, 10]);
+    offer({ x: 70, y: 320, w: 860, h: 245 });
+    for (const tx of [15, 985]) { c.beginPath(); c.arc(tx, 305, 24, 0, 2 * Math.PI); c.fillStyle = '#fff'; c.fill(); c.strokeStyle = '#000'; c.lineWidth = 5; c.stroke(); }
+    bottom();
   } else if (t === 'elegant') {
-    rect(c, 17, 17, 966, 666, null, '#000', 2); rect(c, 26, 26, 948, 648, null, '#000', 1);
-    fitText(c, s.banner, { x: 270, y: 67, w: 460, h: 67 }, 49, '#000', 1, 700);
-    rule(c, 90, 104, 250, 104, 2); rule(c, 750, 104, 910, 104, 2); rule(c, 385, 331, 615, 331, 2);
-    pb = { x: 60, y: 340, w: 880, h: 245 }; rule(c, 130, 575, 870, 575, 1);
+    // טיפוגרפיה ענקית: כמעט בלי מסגרת, שם + מחיר בלבד.
+    rect(c, 10, 10, 980, 680, null, '#000', 5);
+    fitText(c, s.banner || 'מחיר מיוחד', { x: 310, y: 36, w: 380, h: 55 }, 42, '#000', 1, 700);
+    rule(c, 70, 106, 930, 106, 6);
+    fitText(c, s.title, { x: 55, y: 125, w: 890, h: 165 }, 118, '#000', 2);
+    offer({ x: 45, y: 300, w: 910, h: 265 });
+    rule(c, 70, 585, 930, 585, 6);
+    fitText(c, s.store, { x: 300, y: 617, w: 400, h: 28 }, 23, '#000', 1, 600);
+    bottom();
   } else if (t === 'split') {
-    rect(c, 10, 10, 980, 680, null, '#000', 5); rect(c, 555, 10, 435, 552, '#000');
-    fitText(c, s.banner, { x: 585, y: 62, w: 375, h: 76 }, 54, '#fff', 2);
-    fitText(c, s.store, { x: 585, y: 28, w: 375, h: 27 }, 22, '#fff', 1, 500);
-    fitText(c, s.title, { x: 585, y: 182, w: 375, h: 255 }, 81, '#fff', 4);
-    fitText(c, s.subtitle, { x: 585, y: 450, w: 375, h: 69 }, 33, '#fff', 2, 700);
-    text(c, s.kind === 'bundle' ? 'מחיר למארז המבצע' : 'מחיר מבצע', 284, 127, 34);
-    pb = { x: 44, y: 219, w: 475, h: 229 }; price(c, s, pb);
-    if (s.kind === 'unit') text(c, 'ליחידה', 283, 482, 27, '#000', 500);
-    footer(c, s, 55, 590, 890, 72); c.restore(); return;
-  } else if (t === 'bold') {
-    rect(c, 10, 10, 980, 680, null, '#000', 7, 12);
-    for (const left of [true, false]) { c.save(); if (!left) { c.translate(1000, 700); c.rotate(Math.PI); } c.beginPath(); c.moveTo(10, 10); c.lineTo(180, 10); c.lineTo(10, 150); c.fillStyle = '#000'; c.fill(); c.restore(); }
-    fitText(c, s.banner, { x: 230, y: 63, w: 540, h: 75 }, 67, '#000', 1);
-    rect(c, 55, 342, 890, 231, '#000', null, 0, 20); pb = { x: 80, y: 351, w: 840, h: 210 };
+    // SALE אלכסוני / חצי חצי: בלוק שחור חזק מול מחיר לבן.
+    rect(c, 8, 8, 984, 684, null, '#000', 7);
+    c.save(); c.beginPath(); c.moveTo(520, 8); c.lineTo(992, 8); c.lineTo(992, 692); c.lineTo(650, 692); c.closePath(); c.fillStyle = '#000'; c.fill(); c.restore();
+    fitText(c, s.banner || 'מבצע!', { x: 675, y: 45, w: 260, h: 75 }, 62, '#fff', 1);
+    fitText(c, s.title, { x: 620, y: 145, w: 320, h: 250 }, 82, '#fff', 4);
+    fitText(c, s.store, { x: 650, y: 575, w: 290, h: 50 }, 25, '#fff', 2, 600);
+    offer({ x: 35, y: 205, w: 545, h: 290 });
+    if (s.subtitle) fitText(c, s.subtitle, { x: 70, y: 505, w: 450, h: 55 }, 35, '#000', 2, 700);
+    footer(c, s, 60, 590, 470, 70); c.restore(); return;
+  } else {
+    // מחיר בבמה: בלוק שחור ענק, פינות חתוכות, תחושה של שלט SALE.
+    rect(c, 8, 8, 984, 684, null, '#000', 8);
+    c.save(); c.fillStyle = '#000'; c.beginPath(); c.moveTo(8,8); c.lineTo(190,8); c.lineTo(8,150); c.closePath(); c.fill(); c.beginPath(); c.moveTo(992,692); c.lineTo(810,692); c.lineTo(992,550); c.closePath(); c.fill(); c.restore();
+    fitText(c, s.banner || 'מבצע!', { x: 300, y: 38, w: 400, h: 75 }, 65, '#000', 1);
+    fitText(c, s.title, { x: 65, y: 135, w: 870, h: 145 }, 102, '#000', 2);
+    rect(c, 48, 318, 904, 270, '#000', null, 0, 18);
+    offer({ x: 70, y: 328, w: 860, h: 245 }, '#fff');
+    bottom();
   }
-  if (t === 'frame' || t === 'ticket') fitText(c, s.store, { x: 57, y: 66, w: 255, h: 32 }, 24, '#000', 2, 500);
-  else if (t !== 'banner') fitText(c, s.store, { x: 155, y: 29, w: 690, h: 25 }, 22, '#000', 1, 500);
-  fitText(c, s.title, { x: b.x, y: b.y, w: b.w, h: s.subtitle ? 102 : 144 }, 92, titleColor, 2);
-  if (s.subtitle) fitText(c, s.subtitle, { x: 65, y: 275, w: 870, h: 47 }, 37, '#000', 1, 700);
-  price(c, s, pb, t === 'bold' ? '#fff' : '#000');
-  if (s.kind === 'unit') text(c, 'ליחידה', 500, 590, 20, '#000', 500);
-  footer(c, s, 78, 606, 844, t === 'ticket' ? 49 : 64); c.restore();
+  c.restore();
 }
 export function drawIndoor(c, s, x, y, w, h) {
   c.save(); c.translate(x, y); c.scale(w / 1000, w / 1000); const H = h * 1000 / w;
