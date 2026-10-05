@@ -7,11 +7,12 @@
 <link rel="icon" href="./icon.svg" type="image/svg+xml"><link rel="manifest" href="./manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="./styles.css?v=1.1.0">
+<link rel="preload" href="./assets/fonts/Heebo-Variable.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="stylesheet" href="./styles.css?v=1.4.0">
 </head>
 <body>
 <header class="app-header">
-<div class="header-line"><span class="brand-icon" aria-hidden="true">ש</span><h1>הכנת שלטים</h1><small>v1.3</small><button id="settings" class="header-tool" aria-label="הגדרות">⚙</button></div>
+<div class="header-line"><span class="brand-icon" aria-hidden="true">ש</span><h1>הכנת שלטים</h1><small>v1.4</small><button id="settings" class="header-tool" aria-label="הגדרות">⚙</button></div>
 <nav class="header-nav" aria-label="סוג השלט"><button data-type="indoor" class="active" aria-pressed="true">שלטי חנות</button><button data-type="outdoor" aria-pressed="false">שלטי חוץ</button><button id="open-library">שמורים <span id="library-count">0</span></button></nav>
 </header>
 <main>
@@ -35,5 +36,5 @@
 <dialog id="settings-dialog" aria-labelledby="settings-title"><div class="dialog-toolbar"><h2 id="settings-title">הגדרות השלטים</h2><button id="close-settings" class="icon-button" aria-label="סגירת הגדרות">×</button></div><label for="store-setting">שם החנות</label><input id="store-setting" maxlength="40"><p class="hint">שינוי השם יחול על השלטים שבעריכה ועל שלטים חדשים. שלטים שמורים לא ישתנו עד לשמירה מחדש.</p><button id="save-settings" class="primary full">שמור</button></dialog>
 <div id="toast" role="status" aria-live="polite" hidden></div>
 <noscript>יש להפעיל JavaScript בדפדפן כדי להכין שלטים.</noscript>
-<script type="module" src="./app.js?v=1.1.0"></script>
+<script type="module" src="./app.js?v=1.4.0"></script>
 </body></html>

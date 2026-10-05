@@ -1,0 +1,12 @@
+[
+  {
+    "browser": "chromium",
+    "cases": 12,
+    "identical": true
+  },
+  {
+    "browser": "webkit",
+    "cases": 12,
+    "identical": true
+  }
+]
