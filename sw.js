@@ -1,4 +1,4 @@
-const CACHE = 'signs-app-shell-v1.1.0';
+const CACHE = 'signs-app-shell-v1.3.0';
 const SHELL = ['./', './index.html', './styles.css?v=1.1.0', './app.js?v=1.1.0', './model.js', './render.js', './indoor.js', './familiar-render.js', './pdf.js', './scanner.js', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); });
 // No skipWaiting: do not replace modules in an open editing session.
