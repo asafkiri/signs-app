@@ -1,0 +1,35 @@
+name: Tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit tests
+        run: npm test
+      - name: Install browser test dependency
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Install test browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Browser tests and printable samples
+        run: npm run test:browser
+      - name: Package sources for reproducible review
+        if: always()
+        run: |
+          mkdir -p artifacts/source
+          cp *.js *.css *.html *.svg *.webmanifest package.json artifacts/source/
+          cp -r tests artifacts/source/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: signs-app-review
+          path: artifacts/
+          retention-days: 7
