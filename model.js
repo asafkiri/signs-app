@@ -1,13 +1,13 @@
 // All pricing is per selling unit. A bundle price is a total INCLUDING VAT.
-export const VERSION = '1.1.0';
+export const VERSION = '1.4.0';
 export const TEMPLATES = [
-  ['frame', 'מסגרת קלאסית', 'ברור וחסכוני בדיו'],
-  ['banner', 'כותרת שחורה', 'כותרת בולטת ומחיר נקי'],
-  ['burst', 'כוכב מבצע', 'מחיר בתוך מסגרת כוכב'],
-  ['ticket', 'כרטיס מבצע', 'מסגרת כרטיס וקו מקווקו'],
-  ['elegant', 'נקי ואלגנטי', 'קווים דקים והרבה לבן'],
-  ['split', 'חצי־חצי', 'כותרת מימין, מחיר משמאל'],
-  ['bold', 'מחיר בבמה', 'מחיר לבן על רקע שחור']
+  ['frame', 'כוכב מבצע', 'מחיר לבן ענק בתוך כוכב שחור'],
+  ['banner', 'התפוצצות מחיר', 'מבצע כמות בהתפוצצות שחורה רחבה'],
+  ['burst', 'מברשת מודרנית', 'כתמי מכחול וטיפוגרפיה כבדה'],
+  ['split', 'חצי־חצי', 'אלכסונים ופינות שחורות'],
+  ['ticket', 'קופון', 'מסגרת גזירה ומחיר ענק'],
+  ['bold', 'מחיר גדול', 'כותרת אלכסונית ומחיר דומיננטי'],
+  ['elegant', 'מינימליסטי מודגש', 'מחיר ענק בבלוק שחור וקרני הדגשה']
 ];
 export function newDraft() {
   return { title: '', subtitle: '', entry: 'manual', kind: 'unit', quantity: '2', price: '', free: '', pct: '', profitMode: 'markup', cost: '', vat: '18', margin: '25', rounding: 'shop', type: 'indoor', template: 'frame', store: 'מיני מרקט שלום', banner: 'מבצע!', note: '', oldPrice: '', start: '', end: '', barcodes: [], withBarcodes: false };

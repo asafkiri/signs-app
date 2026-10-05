@@ -3,17 +3,21 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { VERSION } from '../model.js';
+import { checkOutdoor } from './outdoor-browser.mjs';
+const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
 const server=http.createServer((req,res)=>{const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);const rel=pathname.replace(/^\/signs-app\//,'/');const f=path.join(root,rel==='/'?'index.html':rel);if(!f.startsWith(root+path.sep)||!fs.existsSync(f)||fs.statSync(f).isDirectory()){res.writeHead(404);return res.end();}res.setHeader('Content-Type',mime[path.extname(f)]||'text/plain');fs.createReadStream(f).pipe(res);});
 await new Promise(r=>server.listen(4173,'127.0.0.1',r));
-let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++;};const eq=(actual,expected)=>{assert.deepEqual(actual,expected);checks++;};
+let checks=0;const ok=(value,message)=>{assert.ok(value,message);checks++;};const eq=(actual,expected)=>{if(typeof actual==='string'&&actual.startsWith('data:'))assert.ok(actual===expected,'canvas/export bytes must match');else assert.deepEqual(actual,expected);checks++;};
 try{
- for(const [name,engine]of [['chromium',chromium],['webkit',webkit]]){
+ for(const [name,engine]of [['chromium',chromium],['webkit',webkit]].filter(([name])=>browserNames.includes(name))){
+  console.log(`Browser: ${name}`);
   const browser=await engine.launch({headless:true}),context=await browser.newContext({viewport:{width:390,height:844},locale:'he-IL',acceptDownloads:true});
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.accept());
   await page.addInitScript(()=>{window.__shared=[];window.__cameraCalls=0;Object.defineProperty(navigator,'canShare',{configurable:true,value:()=>true});Object.defineProperty(navigator,'share',{configurable:true,value:async({files})=>{window.__shared=await Promise.all(files.map(async f=>({name:f.name,type:f.type,url:await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.readAsDataURL(f);})})));}});});
-  const load=async()=>{await page.goto('http://127.0.0.1:4173/signs-app/');await page.waitForFunction(()=>document.documentElement.dataset.version==='1.1.0');await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(150);};await load();
+  const load=async()=>{await page.goto('http://127.0.0.1:4173/signs-app/');await page.waitForFunction(version=>document.documentElement.dataset.version===version,VERSION);await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(150);};await load();
   const card=()=>page.locator('#cards>.card').first(),field=k=>card().locator(`[data-field="${k}"]`);
   eq(await card().locator('.barcode-details').evaluate(e=>e.open),false);
   eq(await card().locator('.kind-row button').allTextContents(),['מחיר ליח׳','כמות במחיר','% הנחה']);
@@ -44,6 +48,7 @@ try{
   await card().locator('[data-kind=unit]').click();await field('title').fill('לחמניות עשרייה ברמן');await field('price').fill('12.90');
   await page.locator('[data-type=outdoor]').click();eq(await page.locator('.template-option').count(),7);ok(await page.locator('#layouts').isHidden());
   for(const template of ['frame','banner','burst','ticket','elegant','split','bold']){await page.locator(`[data-template=${template}]`).click();await page.waitForTimeout(120);eq(await page.locator(`[data-template=${template}]`).getAttribute('aria-pressed'),'true');if(name==='chromium')await page.locator('#signPages canvas').first().screenshot({path:path.join(out,`template-${template}.png`)});}
+  await checkOutdoor({page,name,out,ok,eq,load});
   await page.locator('[data-type=indoor]').click();await field('title').fill('<img src=x onerror=alert(1)>');await page.locator('#save-sign').click();eq(await page.locator('#library-list img').count(),0);
   for(const width of [320,390,430,1440]){await page.setViewportSize({width,height:900});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);}
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
@@ -52,7 +57,7 @@ try{
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
    const d={title:'שלט שמור ישן',subtitle:'',entry:'calc',kind:'bundle',quantity:'2',price:'31.47',free:'',cost:'10',vat:'18',margin:'25',rounding:'exact',type:'indoor',template:'frame',store:'מינימרקט שלום',banner:'מבצע!',note:'',oldPrice:'',start:'',end:'',barcodes:[],withBarcodes:false};
    localStorage.setItem('signs-app:v1:draft',JSON.stringify(d));localStorage.setItem('signs-app:v1:item:legacy',{toString:()=>JSON.stringify({id:'legacy',draft:d,updatedAt:1})});
-  });const lp=await legacy.newPage();await lp.goto('http://127.0.0.1:4173/signs-app/');await lp.waitForFunction(()=>document.documentElement.dataset.version==='1.1.0');eq(await lp.locator('[data-field=price]').inputValue(),'31.47');eq(await lp.locator('#library-count').textContent(),'1');await lp.locator('[data-detail=pricing] summary').click();eq(await lp.locator('[data-field=profitMode]').inputValue(),'margin');eq(await lp.locator('[data-field=rounding]').inputValue(),'exact');await legacy.close();await browser.close();
+  });const lp=await legacy.newPage();await lp.goto('http://127.0.0.1:4173/signs-app/');await lp.waitForFunction(version=>document.documentElement.dataset.version===version,VERSION);eq(await lp.locator('[data-field=price]').inputValue(),'31.47');eq(await lp.locator('#library-count').textContent(),'1');await lp.locator('[data-detail=pricing] summary').click();eq(await lp.locator('[data-field=profitMode]').inputValue(),'margin');eq(await lp.locator('[data-field=rounding]').inputValue(),'exact');await legacy.close();await browser.close();
  }
- fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({checks,status:'passed',browsers:['chromium','webkit'],version:'1.1.0'},null,2));console.log(`PASS: ${checks} browser assertions (Chromium + WebKit)`);
+ fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({checks,status:'passed',browsers:browserNames,version:VERSION},null,2));console.log(`PASS: ${checks} browser assertions (${browserNames.join(' + ')})`);
 }finally{server.close();}

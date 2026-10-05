@@ -72,7 +72,7 @@ function calculate(e, element) {
 function schedule() { clearTimeout(refreshTimer); persist(); refreshTimer = setTimeout(refresh,100); }
 function refresh() {
   clearTimeout(refreshTimer); refreshTimer = null; persist(); error();
-  $('cards').querySelectorAll('[data-uid]').forEach(el => { const e = entries.find(e => e.uid === el.dataset.uid); calculate(e,el); if (el.querySelector('.template-details')?.open) el.querySelectorAll('[data-template]').forEach(b => previewCanvas(b.querySelector('canvas'),{...previewSign(e.draft),template:b.dataset.template})); });
+  $('cards').querySelectorAll('[data-uid]').forEach(el => { const e = entries.find(e => e.uid === el.dataset.uid); calculate(e,el); if (el.querySelector('.template-details')?.open) el.querySelectorAll('[data-template]').forEach(b => previewCanvas(b.querySelector('canvas'),{...previewSign(e.draft.title.trim() ? e.draft : {...e.draft,title:'לחמניות עשירייה',subtitle:'ברמן',kind:'unit',price:'12.90',note:'',oldPrice:'',start:'',end:''}),template:b.dataset.template})); });
   const revision = ++imageRevision; imageFiles = [];
   pages.forEach(c => { c.width = 0; c.height = 0; }); pages = []; $('signPages').replaceChildren();
   try {
@@ -140,6 +140,7 @@ $('close-scan').addEventListener('click',()=>$('scan-dialog').close());$('scan-d
 $('settings').addEventListener('click',()=>{$('store-setting').value=entries[0].draft.store;$('settings-dialog').showModal();});$('close-settings').addEventListener('click',()=>$('settings-dialog').close());$('save-settings').addEventListener('click',()=>{entries.forEach(e=>e.draft.store=$('store-setting').value.trim());$('settings-dialog').close();renderCards();});
 $('backup').addEventListener('click',()=>download(new Blob([JSON.stringify({app:'signs-app',version:1,signs:saved.map(({id,updatedAt,draft})=>({id,updatedAt,draft}))},null,2)],{type:'application/json'}),'signs-backup.json'));
 $('restore').addEventListener('click',()=>$('restore-file').click());$('restore-file').addEventListener('change',async ev=>{const file=ev.target.files[0];if(!file)return;try{if(file.size>2000000)throw new Error('קובץ הגיבוי גדול מדי');const data=JSON.parse(await file.text());if(data.app!=='signs-app'||data.version!==1||!Array.isArray(data.signs)||data.signs.length>150)throw new Error('זה אינו גיבוי נתמך');const incoming=data.signs.map(s=>{if(!s?.draft)throw new Error('שלט לא תקין בגיבוי');const d=cleanDraft(s.draft);buildSign(d);return d;});if(incoming.length+saved.length>150)throw new Error('אין מספיק מקום ברשימה');if(!confirm(`לייבא ${incoming.length} שלטים כעותקים חדשים? הקיימים לא יימחקו.`))return;let n=0;for(const d of incoming){const id=crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:d}))break;n++;}loadSaved();toast(`יובאו ${n} שלטים`);}catch(err){toast(err.message);}finally{$('restore-file').value='';}});
+await document.fonts?.load('900 100px "Outdoor Black"', 'מבצע לחמניות ₪ 12.90').catch(()=>{});
 renderCards();loadSaved();document.fonts?.ready.then(()=>{refresh();renderSaved();});
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').then(r=>r.update().catch(()=>{})).catch(()=>{});
 document.documentElement.dataset.version=VERSION;
