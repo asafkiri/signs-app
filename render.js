@@ -84,7 +84,7 @@ export function drawOutdoor(c, s, x, y, w, h) {
     rule(c, 250, 328, 750, 328, 5); pb = { x: 50, y: 343, w: 900, h: 230 };
   } else if (t === 'burst') {
     rect(c, 10, 10, 980, 680, null, '#000', 4); fitText(c, s.banner, { x: 280, y: 55, w: 440, h: 75 }, 61, '#000', 1);
-    rule(c, 65, 99, 240, 99, 9); rule(c, 760, 99, 935, 99, 9); star(c, 500, 449, 457, 144);
+    rule(c, 65, 99, 240, 99, 9); rule(c, 760, 99, 935, 99, 9); star(c, 500, 449, 457, 127);
     pb = { x: 120, y: 357, w: 760, h: 190 };
   } else if (t === 'ticket') {
     rect(c, 18, 18, 964, 664, null, '#000', 6, 24); c.save(); c.setLineDash([10, 10]); rect(c, 36, 36, 928, 628, null, '#000', 2, 16); c.restore();
@@ -96,7 +96,7 @@ export function drawOutdoor(c, s, x, y, w, h) {
     rect(c, 17, 17, 966, 666, null, '#000', 2); rect(c, 26, 26, 948, 648, null, '#000', 1);
     fitText(c, s.banner, { x: 270, y: 67, w: 460, h: 67 }, 49, '#000', 1, 700);
     rule(c, 90, 104, 250, 104, 2); rule(c, 750, 104, 910, 104, 2); rule(c, 385, 331, 615, 331, 2);
-    pb = { x: 60, y: 340, w: 880, h: 245 }; rule(c, 130, 582, 870, 582, 1);
+    pb = { x: 60, y: 340, w: 880, h: 245 }; rule(c, 130, 575, 870, 575, 1);
   } else if (t === 'split') {
     rect(c, 10, 10, 980, 680, null, '#000', 5); rect(c, 555, 10, 435, 552, '#000');
     fitText(c, s.banner, { x: 585, y: 62, w: 375, h: 76 }, 54, '#fff', 2);
@@ -113,20 +113,23 @@ export function drawOutdoor(c, s, x, y, w, h) {
     fitText(c, s.banner, { x: 230, y: 63, w: 540, h: 75 }, 67, '#000', 1);
     rect(c, 55, 342, 890, 231, '#000', null, 0, 20); pb = { x: 80, y: 351, w: 840, h: 210 };
   }
-  if (t !== 'banner') fitText(c, s.store, { x: 155, y: 29, w: 690, h: 25 }, 22, '#000', 1, 500);
+  if (t === 'frame' || t === 'ticket') fitText(c, s.store, { x: 57, y: 66, w: 255, h: 32 }, 24, '#000', 2, 500);
+  else if (t !== 'banner') fitText(c, s.store, { x: 155, y: 29, w: 690, h: 25 }, 22, '#000', 1, 500);
   fitText(c, s.title, { x: b.x, y: b.y, w: b.w, h: s.subtitle ? 102 : 144 }, 92, titleColor, 2);
   if (s.subtitle) fitText(c, s.subtitle, { x: 65, y: 275, w: 870, h: 47 }, 37, '#000', 1, 700);
   price(c, s, pb, t === 'bold' ? '#fff' : '#000');
-  if (s.kind === 'unit') text(c, 'ליחידה', 500, 600, 23, '#000', 500);
-  footer(c, s, 78, 620, 844, 50); c.restore();
+  if (s.kind === 'unit') text(c, 'ליחידה', 500, 590, 20, '#000', 500);
+  footer(c, s, 78, 606, 844, t === 'ticket' ? 49 : 64); c.restore();
 }
 export function drawIndoor(c, s, x, y, w, h) {
   c.save(); c.translate(x, y); c.scale(w / 1000, w / 1000); const H = h * 1000 / w;
   rect(c, 5, 5, 990, H - 10, '#fff', '#000', 5, 12);
   rect(c, 722, 8, 270, 51, '#000', null, 0, 6); fitText(c, s.banner, { x: 733, y: 12, w: 248, h: 42 }, 35, '#fff', 1);
   fitText(c, s.store, { x: 33, y: 17, w: 655, h: 28 }, 24, '#000', 1, 500);
-  const top = 69, footerH = s.note || s.oldPrice || s.start || s.end ? Math.min(90, H * .20) : 28;
-  const titleH = Math.min(135, H * .25), subH = s.subtitle ? Math.min(44, H * .10) : 0;
+  const dense = H < 500;
+  const footerLines = [s.oldPrice, s.note, dateLabel(s)].filter(Boolean).length;
+  const top = dense ? 62 : 69, footerH = footerLines ? (dense ? footerLines * 20 + 4 : Math.min(90, H * .20)) : 20;
+  const titleH = dense ? 58 : Math.min(135, H * .25), subH = s.subtitle ? (dense ? 26 : Math.min(44, H * .10)) : 0;
   fitText(c, s.title, { x: 35, y: top, w: 930, h: titleH }, Math.min(93, titleH * .75), '#000', 2);
   if (s.subtitle) fitText(c, s.subtitle, { x: 35, y: top + titleH, w: 930, h: subH }, 33, '#000', 1, 700);
   const py = top + titleH + subH + 3, ph = H - footerH - py - 22;
@@ -134,7 +137,10 @@ export function drawIndoor(c, s, x, y, w, h) {
   footer(c, s, 35, H - footerH - 9, 930, footerH - 2); c.restore();
 }
 export function previewCanvas(canvas, sign) {
-  canvas.width = 1000; canvas.height = 707; const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height);
+  // Thumbnail canvases need far fewer pixels than the live/printed sign.
+  const factor = canvas.closest?.('.template-option, .saved-sign') ? .32 : 1;
+  canvas.width = Math.round(1000 * factor); canvas.height = Math.round(707 * factor); const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, canvas.width, canvas.height);
+  c.scale(factor, factor);
   const draw = sign.type === 'outdoor' ? drawOutdoor : drawIndoor;
   draw(c, sign, 25, 25, 950, 657);
 }
