@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { VERSION } from '../model.js';
+import { checkIndoorPrices } from './indoor-price-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
@@ -49,6 +50,7 @@ try{
   await page.locator('[data-type=outdoor]').click();eq(await page.locator('.template-option').count(),7);ok(await page.locator('#layouts').isHidden());
   for(const template of ['frame','banner','burst','ticket','elegant','split','bold']){await page.locator(`[data-template=${template}]`).click();await page.waitForTimeout(120);eq(await page.locator(`[data-template=${template}]`).getAttribute('aria-pressed'),'true');if(name==='chromium')await page.locator('#signPages canvas').first().screenshot({path:path.join(out,`template-${template}.png`)});}
   await checkOutdoor({page,name,out,ok,eq,load});
+  await checkIndoorPrices({page,name,out,ok,eq});
   await page.locator('[data-type=indoor]').click();await field('title').fill('<img src=x onerror=alert(1)>');await page.locator('#save-sign').click();eq(await page.locator('#library-list img').count(),0);
   for(const width of [320,390,430,1440]){await page.setViewportSize({width,height:900});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);}
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
