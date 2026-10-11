@@ -22,7 +22,7 @@ function harness({ ios = false, formats = ['ean_13', 'ean_8'], wasmFails = false
     async detect(src) { if (src.width === 4) return []; return super.detect(src); }
   }
   const fallback = { stop() { calls.fallbackStops = (calls.fallbackStops || 0) + 1; } };
-  const window = { BarcodeDetector: Native, ZXingBrowser: { BrowserMultiFormatOneDReader: class { async decodeFromStream(s, v, callback) { calls.fallback++; calls.fallbackStream = s; calls.deliver = value => callback({ getText: () => value }, null, fallback); return fallback; } } } };
+  const window = { BarcodeDetector: Native, ZXingBrowser: { BrowserMultiFormatOneDReader: class { async decodeFromStream(s, v, callback) { calls.fallback++; calls.fallbackStream = s; const preview = v || {}; fallback.stop = () => { preview.srcObject = null; calls.fallbackStops = (calls.fallbackStops || 0) + 1; }; calls.deliver = value => callback({ getText: () => value }, null, fallback); return fallback; } } } };
   const context = vm.createContext({ window, navigator: { userAgent: ios ? 'iPhone' : 'Android', platform: '', mediaDevices: { getUserMedia: async c => { calls.camera.push(c); return camera ? camera(stream) : stream; } } }, document: { createElement: canvas }, setTimeout: (fn, ms) => { timers.set(++id, { fn, ms }); return id; }, clearTimeout: n => timers.delete(n), loadModule: async () => { if (wasmFails) throw new Error('network'); return { BarcodeDetector: Wasm }; }, console });
   vm.runInContext(source, context);
   return { calls, video, stream, buttons, frame, timers, get stopCount() { return stopCount; }, cancel() { cancelled = true; }, start: () => context.startScanner(video, code => calls.codes.push(code), () => cancelled, { frame, torchButton: buttons }), prepare: () => context.prepareScanner(), async tick() { const entry = [...timers].find(([, t]) => t.ms <= 400); assert.ok(entry, 'scan loop scheduled'); timers.delete(entry[0]); await entry[1].fn(); } };
@@ -82,4 +82,11 @@ test('all eight ROI passes run, including full frame, with no overlapping decode
   const h = harness({ ios: true }); const stop = await h.start();
   for (let i = 0; i < 8; i++) await h.tick();
   assert.equal(h.calls.sources.length, 8); assert.equal(h.calls.sources[7].width, 1280); stop();
+});
+
+test('late ZXing cleanup cannot clear the visible video of a newer session', async () => {
+  const h = harness({ ios: true, wasmFails: true }); const stop = await h.start(); stop();
+  const replacement = {}; h.video.srcObject = replacement;
+  h.calls.deliver('stale');
+  assert.equal(h.video.srcObject, replacement); assert.deepEqual(h.calls.codes, []);
 });

@@ -184,8 +184,9 @@ export async function startScanner(video, onCode, isCancelled = () => false, { f
     status('כוון את הברקוד לתוך המסגרת. אם התמונה מטושטשת, התרחק מעט.');
     if (!detector) {
       const reader = new fallback.BrowserMultiFormatOneDReader();
-      // The stream belongs to this session, even if decoding resolves after dismissal.
-      controls = await reader.decodeFromStream(stream, video, (result, _error, ctl) => {
+      // ZXing clears its preview on stop. Give it a private video so a late
+      // fallback cleanup cannot detach the visible video of a newer session.
+      controls = await reader.decodeFromStream(stream, undefined, (result, _error, ctl) => {
         if (cancelled()) { ctl?.stop(); stop(); return; }
         if (result && accept(result.getText())) ctl?.stop();
       });
