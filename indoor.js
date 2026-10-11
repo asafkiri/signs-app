@@ -180,7 +180,7 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
         }
       }
       const bl = buildLines('900 ' + m.listSmall + 'px Heebo, Arial');
-      const top = shift + m.topPad + tl.length * m.titleLH + (big ? m.bigPad + m.bigAfter : 0) + (s.note ? 20 : 0);
+      const top = shift + m.topPad + tl.length * m.titleLH + (big ? m.bigPad + m.bigAfter + (oldP != null ? m.old + 16 : 0) : 0) + (s.note ? m.note + 16 : 0);
       const listH = prods.length ? 12 + (m.listHead - 6 + m.listLH) + bl.out.length * m.listLH + 14 : 0;
       M = m; titleLines = tl; linesOut = bl.out; lineCounts = bl.counts; brandShift = shift; titleCx = tCx;
       const fits = top + listH <= innerH;
@@ -207,7 +207,7 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
     ctx.fillStyle = '#0f172a'; ctx.font = '900 ' + M.title + 'px Heebo, Arial';
     titleLines.forEach(ln => { ctx.fillText(ln, titleCx, y); y += M.titleLH; });
     const headH = (M.listHead - 6) + M.listLH;
-    const yAfterMiddlePred = y + (big ? M.bigPad + M.bigAfter : 0) + (s.note ? 20 : 0);
+    const yAfterMiddlePred = y + (big ? M.bigPad + M.bigAfter + (oldP != null ? M.old + 16 : 0) : 0) + (s.note ? M.note + 16 : 0);
     let shown = [], hasMore = false, moreCount = 0, lyAnchor = null;
     if (prods.length) {
       let shownL;
@@ -228,33 +228,62 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
     const bandBottom = (lyAnchor != null ? lyAnchor - 16 : y0 + innerH - 6);
     if (big) {
       const segs = signPriceSegs(s);
-      const noteH = (s.note ? M.note + 12 : 0);
-      const bandH = Math.max(M.bigPad + M.bigAfter, bandBottom - bandTop);
-      const oldTxt = (oldP != null ? 'במקום ' + signPriceTxt(oldP) + ' ליחידה' : '');
-      // Keep the unit comparison subordinate and leave room for the offer at every layout size.
-      let oldFont = M.old;
+      const oldTxt = oldP != null ? String(oldP) + ' ליח׳' : '';
+      let oldFont = Math.min(M.old, 64);
       ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
-      while (oldTxt && ctx.measureText(oldTxt).width > widthAvail * 0.30 && oldFont > 14) {
+      while (oldTxt && ctx.measureText(oldTxt).width > widthAvail && oldFont > 14) {
         oldFont--; ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
       }
-      const ow = oldTxt ? ctx.measureText(oldTxt).width : 0;
-      const oldSpan = oldTxt ? ow + 24 : 0;
+      // Size the offer using its full width first, exactly as without a comparison.
+      const noteH = s.note ? M.note + 16 : 0;
+      const bandH = Math.max(1, bandBottom - bandTop);
       const measureBig = (sz) => { if (segs) return measurePriceSegs(ctx, segs, sz); ctx.font = '900 ' + sz + 'px Heebo, Arial'; return ctx.measureText(big).width; };
-      let bigSize = Math.max(M.big, Math.min(Math.round(190 * slotScale), Math.floor((bandH - noteH) / 0.85)));
-      while (measureBig(bigSize) + oldSpan > widthAvail && bigSize > 16) { bigSize -= 4; }
-      const bw = measureBig(bigSize);
-      const groupH = Math.round(bigSize * 0.78) + noteH;
-      const topOffset = Math.max(0, Math.min(Math.floor((bandH - groupH) / 2), 10));
-      let by = bandTop + topOffset + Math.round(bigSize * 0.72);
-      const bigCx = cx + (oldTxt ? Math.round(oldSpan / 2) : 0);
-      ctx.fillStyle = '#000000';
-      if (segs) drawPriceSegs(ctx, segs, bigCx, by, bigSize);
-      else { ctx.font = '900 ' + bigSize + 'px Heebo, Arial'; ctx.fillText(big, bigCx, by); }
+      const fitBig = (footerH) => {
+        let size = Math.max(16, Math.min(Math.round(190 * slotScale), Math.floor((bandH - footerH) / 0.85)));
+        while (measureBig(size) > widthAvail && size > 16) size -= 4;
+        return size;
+      };
+      const baseline = (size, footerH) => {
+        const groupH = Math.round(size * 0.78) + footerH;
+        const topOffset = Math.max(0, Math.min(Math.floor((bandH - groupH) / 2), 10));
+        return bandTop + topOffset + Math.round(size * 0.72);
+      };
+      let bigSize = fitBig(noteH), by = baseline(bigSize, noteH);
+      let oldCx = cx, oldBy = 0, oldBelow = false;
       if (oldTxt) {
-        const oldCx = bigCx - Math.round(bw / 2) - 24 - Math.round(ow / 2);
+        const metrics = () => { ctx.font = '900 ' + oldFont + 'px Heebo, Arial'; return ctx.measureText(oldTxt); };
+        let om = metrics();
+        const belowY = by + oldFont + 16;
+        if (belowY + om.actualBoundingBoxDescent + noteH <= bandBottom) {
+          oldBelow = true; oldBy = belowY;
+        } else {
+          // Short four-per-page signs often have ample space beside the offer,
+          // but not another line below it. Use that space without shrinking it.
+          const left = x0 + 40, spare = cx - measureBig(bigSize) / 2 - 16 - left;
+          while (om.width > spare && oldFont > 18) { oldFont--; om = metrics(); }
+          if (om.width <= spare) {
+            oldCx = left + om.width / 2; oldBy = by - 4;
+          } else {
+            // Dense notes/barcode lists: give every line actual vertical space.
+            oldFont = Math.min(M.old, 64); om = metrics();
+            const footerH = oldFont + 16 + noteH;
+            bigSize = fitBig(footerH); by = baseline(bigSize, footerH);
+            oldBelow = true; oldBy = by + oldFont + 16;
+          }
+        }
+      }
+      ctx.fillStyle = '#000000';
+      if (segs) drawPriceSegs(ctx, segs, cx, by, bigSize);
+      else { ctx.font = '900 ' + bigSize + 'px Heebo, Arial'; ctx.fillText(big, cx, by); }
+      if (oldTxt) {
         ctx.fillStyle = '#000000'; ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
-        ctx.fillText(oldTxt, oldCx, by - 4);
-        // The explicit 'במקום' label is enough; no strike-through obscures the decimal point.
+        ctx.fillText(oldTxt, oldCx, oldBy);
+        const oldW = ctx.measureText(oldTxt).width;
+        ctx.strokeStyle = '#000000'; ctx.lineWidth = Math.max(1.5, oldFont * 0.045);
+        // Cross the letters/numerals, keeping the decimal point below the line.
+        const strikeY = oldBy - oldFont * 0.32;
+        ctx.beginPath(); ctx.moveTo(oldCx - oldW / 2 - 3, strikeY); ctx.lineTo(oldCx + oldW / 2 + 3, strikeY); ctx.stroke();
+        if (oldBelow) by = oldBy;
       }
       if (s.note) {
         by += M.note + 16; ctx.fillStyle = '#000000';
