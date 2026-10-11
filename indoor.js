@@ -5,14 +5,12 @@ const signProductsFor = s => (s.barcodes || []).map(barcode => ({ barcode }));
 export function indoorSign(s) {
   const f = d => d ? d.split('-').reverse().join('.') : '';
   return { ...s, qty: s.quantity, title: [s.title, s.subtitle].filter(Boolean).join(' '),
-    validUntil: f(s.end), oldPrice: s.oldPrice ? s.oldPrice * (s.kind === 'bundle' ? s.quantity : 1) : '',
+    validUntil: f(s.end), oldPrice: s.oldPrice ? s.oldPrice : '',
     note: [s.note, s.start ? 'בתוקף מ־' + f(s.start) : ''].filter(Boolean).join(' · ') };
 }
 function signPriceTxt(v) {
   v = r2(Number(v) || 0);
-  const sh = Math.floor(v);
-  const ag = Math.round((v - sh) * 100);
-  return ag > 0 ? ('₪' + sh + '-' + (ag < 10 ? '0' + ag : ag)) : ('₪' + sh);
+  return v.toFixed(2) + ' ₪';
 }
 function signPriceSegs(s) {
   if (s.kind === 'pct' || s.kind === 'free') return null;
@@ -200,7 +198,7 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
     ctx.fillText('🛒 ' + storeName, badgeX1 - 15, badgeTopY + Math.round(badgeH / 2) + Math.round(badgeFont * 0.35));
     ctx.textAlign = 'center';
     if (hasValid) {
-      ctx.fillStyle = '#475569'; ctx.font = '900 ' + validFont + 'px Heebo, Arial';
+      ctx.fillStyle = '#000000'; ctx.font = '900 ' + validFont + 'px Heebo, Arial';
       ctx.textAlign = 'left';
       ctx.fillText('בתוקף עד ' + s.validUntil.trim(), x0 + 24, y0 + 24 + validFont * 0.4);
       ctx.textAlign = 'center';
@@ -232,13 +230,18 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
       const segs = signPriceSegs(s);
       const noteH = (s.note ? M.note + 12 : 0);
       const bandH = Math.max(M.bigPad + M.bigAfter, bandBottom - bandTop);
-      const oldTxt = (oldP != null ? 'במקום ' + signPriceTxt(oldP) : '');
-      ctx.font = '800 ' + M.old + 'px Heebo, Arial';
+      const oldTxt = (oldP != null ? 'במקום ' + signPriceTxt(oldP) + ' ליחידה' : '');
+      // Keep the unit comparison subordinate and leave room for the offer at every layout size.
+      let oldFont = M.old;
+      ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
+      while (oldTxt && ctx.measureText(oldTxt).width > widthAvail * 0.30 && oldFont > 14) {
+        oldFont--; ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
+      }
       const ow = oldTxt ? ctx.measureText(oldTxt).width : 0;
       const oldSpan = oldTxt ? ow + 24 : 0;
       const measureBig = (sz) => { if (segs) return measurePriceSegs(ctx, segs, sz); ctx.font = '900 ' + sz + 'px Heebo, Arial'; return ctx.measureText(big).width; };
       let bigSize = Math.max(M.big, Math.min(Math.round(190 * slotScale), Math.floor((bandH - noteH) / 0.85)));
-      while (measureBig(bigSize) + oldSpan > widthAvail && bigSize > Math.round(M.big * 0.7)) { bigSize -= 4; }
+      while (measureBig(bigSize) + oldSpan > widthAvail && bigSize > 16) { bigSize -= 4; }
       const bw = measureBig(bigSize);
       const groupH = Math.round(bigSize * 0.78) + noteH;
       const topOffset = Math.max(0, Math.min(Math.floor((bandH - groupH) / 2), 10));
@@ -249,19 +252,18 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
       else { ctx.font = '900 ' + bigSize + 'px Heebo, Arial'; ctx.fillText(big, bigCx, by); }
       if (oldTxt) {
         const oldCx = bigCx - Math.round(bw / 2) - 24 - Math.round(ow / 2);
-        ctx.fillStyle = '#94a3b8'; ctx.font = '800 ' + M.old + 'px Heebo, Arial';
+        ctx.fillStyle = '#000000'; ctx.font = '900 ' + oldFont + 'px Heebo, Arial';
         ctx.fillText(oldTxt, oldCx, by - 4);
-        ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = Math.max(2, Math.round(M.old / 10));
-        ctx.beginPath(); ctx.moveTo(oldCx - ow / 2 - 4, by - 4 - M.old * 0.32); ctx.lineTo(oldCx + ow / 2 + 4, by - 4 - M.old * 0.32); ctx.stroke();
+        // The explicit 'במקום' label is enough; no strike-through obscures the decimal point.
       }
       if (s.note) {
-        by += M.note + 16; ctx.fillStyle = '#475569';
+        by += M.note + 16; ctx.fillStyle = '#000000';
         let noteF = M.note; ctx.font = '900 ' + noteF + 'px Heebo, Arial';
         while (ctx.measureText('* ' + s.note).width > widthAvail && noteF > 14) { noteF--; ctx.font = '900 ' + noteF + 'px Heebo, Arial'; }
         ctx.fillText('* ' + s.note, cx, by);
       }
     } else if (s.note) {
-      ctx.fillStyle = '#475569'; ctx.font = '900 ' + M.note + 'px Heebo, Arial';
+      ctx.fillStyle = '#000000'; ctx.font = '900 ' + M.note + 'px Heebo, Arial';
       let noteF2 = M.note;
       ctx.font = '900 ' + noteF2 + 'px Heebo, Arial';
       while (ctx.measureText('* ' + s.note).width > widthAvail && noteF2 > 14) { noteF2--; ctx.font = '900 ' + noteF2 + 'px Heebo, Arial'; }
