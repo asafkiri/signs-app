@@ -1,5 +1,5 @@
 // All pricing is per selling unit. A bundle price is a total INCLUDING VAT.
-export const VERSION = '1.7.0';
+export const VERSION = '1.7.1';
 export const TEMPLATES = [
   ['frame', 'כוכב מבצע', 'מחיר לבן ענק בתוך כוכב שחור'],
   ['banner', 'התפוצצות מחיר', 'מבצע כמות בהתפוצצות שחורה רחבה'],
@@ -10,7 +10,7 @@ export const TEMPLATES = [
   ['elegant', 'מינימליסטי מודגש', 'מחיר ענק בבלוק שחור וקרני הדגשה']
 ];
 export function newDraft() {
-  return { title: '', subtitle: '', entry: 'manual', kind: 'unit', quantity: '2', price: '', free: '', pct: '', profitMode: 'markup', cost: '', vat: '18', margin: '25', rounding: 'shop', type: 'indoor', template: 'frame', store: 'מיני מרקט שלום', banner: 'מבצע!', note: '', oldPrice: '', start: '', end: '', barcodes: [], withBarcodes: false, promoBadge: false };
+  return { title: '', subtitle: '', entry: 'manual', kind: 'unit', quantity: '2', price: '', free: '', pct: '', profitMode: 'markup', cost: '', vat: '18', margin: '25', rounding: 'shop', type: 'indoor', template: 'frame', store: 'מיני מרקט שלום', banner: 'מבצע!', note: '', oldPrice: '', end: '', barcodes: [], withBarcodes: false, promoBadge: false };
 }
 export function number(value, label = 'מספר', min = 0, max = 1000000) {
   const raw = String(value ?? '').trim();
@@ -76,8 +76,7 @@ export function buildSign(input) {
     if (d[key].length > max) throw new Error(name + ': הטקסט ארוך מדי');
   }
   if (!d.title) throw new Error('יש להזין כותרת לשלט');
-  if (d.start && !dateOK(d.start) || d.end && !dateOK(d.end)) throw new Error('יש להזין תאריך תקין');
-  if (d.start && d.end && d.start > d.end) throw new Error('תאריך הסיום קודם לתאריך ההתחלה');
+  if (d.end && !dateOK(d.end)) throw new Error('יש להזין תאריך תקין');
   let price = null, quantity = 1, pct = null;
   if (d.kind === 'pct') {
     pct = number(d.pct, 'אחוז הנחה', 0.01, 100);
@@ -94,7 +93,7 @@ export function buildSign(input) {
   const oldPrice = d.oldPrice ? number(d.oldPrice, 'מחיר רגיל ליחידה', 0.01) : null;
   if (oldPrice !== null && price !== null && oldPrice <= price / quantity) throw new Error('המחיר הרגיל ליחידה צריך להיות גבוה ממחיר המבצע ליחידה');
   // Only this object is sent to the renderer. Costs and margins NEVER appear on signs.
-  return { title: d.title, subtitle: d.subtitle, kind: d.kind, price, quantity, pct, free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, note: d.note, oldPrice, start: d.start, end: d.end, barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
+  return { title: d.title, subtitle: d.subtitle, kind: d.kind, price, quantity, pct, free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, note: d.note, oldPrice, end: d.end, barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
 }
 export function offerText(s) {
   if (s.kind === 'free') return s.free;
@@ -130,5 +129,5 @@ export function shopRound(value) {
 // Export continues to require buildSign(), which validates the complete offer.
 export function previewSign(input) {
   const d = cleanDraft(input), n = value => /^\d+(?:[.,]\d+)?$/.test(String(value)) ? Number(String(value).replace(',', '.')) : 0;
-  return { title: d.title, subtitle: d.subtitle, kind: d.kind, quantity: n(d.quantity), price: n(d.price), pct: n(d.pct), free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, oldPrice: n(d.oldPrice), note: d.note, start: dateOK(d.start) ? d.start : '', end: dateOK(d.end) ? d.end : '', barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
+  return { title: d.title, subtitle: d.subtitle, kind: d.kind, quantity: n(d.quantity), price: n(d.price), pct: n(d.pct), free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, oldPrice: n(d.oldPrice), note: d.note, end: dateOK(d.end) ? d.end : '', barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
 }

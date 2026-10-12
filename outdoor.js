@@ -105,7 +105,7 @@ function price(c,s,b,color=WHITE) {
 }
 function dateLabel(s) {
   const f=d=>d.split('-').reverse().join('.');
-  return s.start&&s.end?`${f(s.start)} – ${f(s.end)}`:s.end?`בתוקף עד ${f(s.end)}`:s.start?`בתוקף מ־${f(s.start)}`:'';
+  return s.end?`בתוקף עד ${f(s.end)}`:'';
 }
 function footer(c,s,{capsule=true,x=170,w=660,y=620,h=58}={}) {
   const rows=[s.note,s.oldPrice?`במקום ${money(s.oldPrice)} ₪ ליחידה`:'',dateLabel(s)].filter(Boolean);
@@ -179,7 +179,7 @@ export function drawOutdoor(c,s,x,y,w,h) {
     product(186,hasSub?126:150);
     priceBurst(t==='burst'?'brush':t==='elegant'?'block':'burst');
     footer(c,s);
-    if(!s.note && !s.oldPrice && !s.start && !s.end) {chevrons(c,53,623);c.save();c.translate(947,675);c.rotate(Math.PI);chevrons(c,0,0);c.restore();}
+    if(!s.note && !s.oldPrice && !s.end) {chevrons(c,53,623);c.save();c.translate(947,675);c.rotate(Math.PI);chevrons(c,0,0);c.restore();}
   }
   c.restore();
 }
