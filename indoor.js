@@ -1,3 +1,4 @@
+import { drawWithPromoBadge } from './promo-badge.js';
 // Port of Yotvata sign renderer; source blob 5323d9996e4d2ffb236326cec639e1f9ecb25764.
 // See README for adapters; the original drawing geometry and price segments are preserved.
 const r2 = n => Math.round((Number(n) || 0) * 100) / 100;
@@ -103,6 +104,7 @@ function signTitleFontFor(ctx, text, maxW, k, maxF, minF) {
   return 0;
 }
 export function drawSignSlot(ctx, s, y0, slotH, W) {
+    if (s.promoBadge) return drawWithPromoBadge(ctx, paint => drawSignSlot(paint, { ...s, promoBadge: false }, y0, slotH, W), { x: 40, y: y0, w: W - 80, h: slotH });
     const storeName = s.store || '';
     ctx.textAlign = 'center'; ctx.direction = 'rtl'; ctx.textBaseline = 'alphabetic';
   const pad = 40;

@@ -28,7 +28,7 @@ function select(e, key, label, items) { return `<label for="${e.uid}-${key}">${l
 function card(e, i) {
   const d = e.draft, numeric = ['unit','bundle'].includes(d.kind);
   const priceFields = d.kind === 'free' ? `<div>${field(e,'free','טקסט המבצע',{placeholder:'למשל: השני בחצי מחיר',maxlength:60})}</div>` : d.kind === 'pct' ? `<div>${field(e,'pct','אחוז הנחה (%)',{placeholder:'10',inputmode:'decimal'})}</div>` : `${d.kind === 'bundle' ? `<div class="quantity-field">${field(e,'quantity','כמות',{inputmode:'numeric',placeholder:'4'})}</div>` : ''}<div>${field(e,'price',d.kind === 'unit' ? 'מחיר ליח׳ (₪)' : 'מחיר כולל (₪)',{inputmode:'decimal',placeholder:'0.00'})}</div><div class="old-field">${field(e,'oldPrice','במקום ליח׳ ₪ (רשות)',{inputmode:'decimal',placeholder:'14'})}</div>`;
-  return `<article class="card" data-uid="${e.uid}"><div class="card-top"><span>שלט ${i + 1}${d.barcodes.length ? ` · ${d.barcodes.length} ברקודים` : ''}</span><div><button data-action="copy">שכפול</button> <button data-action="remove" class="delete-card" aria-label="מחיקת שלט ${i+1}">×</button></div></div>
+  return `<article class="card" data-uid="${e.uid}"><div class="card-top"><span>שלט ${i + 1}${d.barcodes.length ? ` · ${d.barcodes.length} ברקודים` : ''}</span>${d.type === 'indoor' ? `<label class="promo-toggle"><input type="checkbox" data-field="promoBadge" ${d.promoBadge ? 'checked' : ''}> חותמת מבצע</label>` : ''}<div><button data-action="copy">שכפול</button> <button data-action="remove" class="delete-card" aria-label="מחיקת שלט ${i+1}">×</button></div></div>
   <div class="title-field">${field(e,'title','כותרת השלט',{placeholder:'למשל: לחמניות עשרייה ברמן',maxlength:80})}</div>
   <div class="kind-row" role="group" aria-label="סוג מבצע">${choices(e,'kind',[['unit','מחיר ליח׳'],['bundle','כמות במחיר'],['pct','% הנחה']],d.kind)}</div>
   <div class="offer-row">${priceFields}</div>
@@ -40,6 +40,7 @@ function card(e, i) {
     <details data-detail="pricing"><summary>אפשרויות חישוב נוספות</summary><div class="details-body options-grid"><div>${select(e,'profitMode','איך לחשב רווח',[['markup','תוספת לעלות — כמו יטבתה'],['margin','אחוז מתוך המכירה']])}</div><div>${select(e,'rounding','עיגול המלצה',[['shop','כמו יטבתה — סיומת .90'],['exact','כלפי מעלה לאגורה'],['ninety','סיומת .90 כלפי מעלה']])}</div></div><p class="hint">העיגול של יטבתה יכול להוריד מעט מהיעד. המחיר לא משתנה בלי לחיצה על ״השתמש״.</p></details>
   </div>
   <div class="field-row"><div class="date-field">${field(e,'end','בתוקף עד',{inputType:'date'})}</div><div>${field(e,'note','הערה (לא חובה)',{placeholder:'לדוגמה: לא כולל מהדורה מיוחדת',maxlength:100})}</div></div>
+  ${d.type === 'indoor' && d.promoBadge ? `<p class="hint">בשלט צפוף החותמת תופיע במקום תג שם החנות.</p>` : ''}
   <details data-detail="extras"><summary>פרטים נוספים <span>· רשות</span></summary><div class="details-body">${d.type === 'outdoor' ? `<div class="field-row"><div>${field(e,'subtitle','שורת משנה',{maxlength:60})}</div><div>${field(e,'start','בתוקף מתאריך',{inputType:'date'})}</div></div><div class="field-row"><div>${field(e,'store','שם החנות',{maxlength:40})}</div><div>${field(e,'banner','כותרת עליונה בשלט חוץ',{maxlength:28})}</div></div>` : `<div class="field-row"><div>${field(e,'start','בתוקף מתאריך',{inputType:'date'})}</div><div>${field(e,'store','שם החנות',{maxlength:40})}</div></div>`}<button class="text-button" data-kind="free">טקסט מבצע חופשי</button></div></details>
   <details class="barcode-details" data-detail="barcodes"><summary>ברקודים וסריקה · רשות</summary><div class="details-body"><div class="code-entry"><input data-code-input inputmode="numeric" dir="ltr" maxlength="32" placeholder="ברקוד / סורק קופה" aria-label="ברקוד"><button data-action="add-code">הוסף</button><button data-action="scan">סריקה</button></div><div data-codes>${d.barcodes.map((code,j) => `<div class="barcode-item"><code dir="ltr">${esc(code)}</code><button class="text-button" data-remove-code="${j}">הסר</button></div>`).join('')}</div><label class="check-line"><input type="checkbox" data-field="withBarcodes" ${d.withBarcodes ? 'checked' : ''}> צרף גם דף ברקודים לקופה</label><p class="hint">המספרים מופיעים בתחתית השלט. הסריקה אינה מחפשת שם או מחיר.</p></div></details>
   ${d.type === 'outdoor' ? `<details class="template-details" data-detail="templates" ${i === 0 ? 'open' : ''}><summary>עיצוב שלט החוץ · ${esc(TEMPLATES.find(t => t[0] === d.template)?.[1])}</summary><div class="template-grid">${TEMPLATES.map(([id,label]) => `<button data-template="${id}" class="template-option" aria-pressed="${id === d.template}"><canvas aria-hidden="true"></canvas><span>${label}</span></button>`).join('')}</div></details>` : ''}
@@ -71,13 +72,14 @@ function calculate(e, element) {
 }
 function schedule() { clearTimeout(refreshTimer); persist(); refreshTimer = setTimeout(refresh,100); }
 function refresh() {
-  clearTimeout(refreshTimer); refreshTimer = null; persist(); error();
+  clearTimeout(refreshTimer); refreshTimer = null; persist(); error(); $('promo-warning').hidden = true;
   $('cards').querySelectorAll('[data-uid]').forEach(el => { const e = entries.find(e => e.uid === el.dataset.uid); calculate(e,el); if (el.querySelector('.template-details')?.open) el.querySelectorAll('[data-template]').forEach(b => previewCanvas(b.querySelector('canvas'),{...previewSign(e.draft.title.trim() ? e.draft : {...e.draft,title:'לחמניות עשירייה',subtitle:'ברמן',kind:'unit',price:'12.90',note:'',oldPrice:'',start:'',end:''}),template:b.dataset.template})); });
   const revision = ++imageRevision; imageFiles = [];
   pages.forEach(c => { c.width = 0; c.height = 0; }); pages = []; $('signPages').replaceChildren();
   try {
     const plans = pagePlan(entries.map(e => previewSign(e.draft)),layout);
     plans.forEach((plan,i) => { const cv = renderPage(plan); pages.push(cv); if (plans.length > 1) { const l = document.createElement('div'); l.className = 'page-label'; l.textContent = `עמוד ${i+1} מתוך ${plans.length}`; $('signPages').append(l); } $('signPages').append(cv); });
+    if (pages.some(cv => cv.promoBadges?.some(b => b.mode === 'omitted'))) { $('promo-warning').textContent = 'באחד השלטים אין מקום בטוח לחותמת מבצע. החותמת לא מוצגת בו כדי לשמור על כל הטקסט.'; $('promo-warning').hidden = false; }
     imageReady = Promise.all(pages.map((cv,i) => new Promise((resolve,reject) => cv.toBlob(blob => blob ? resolve(new File([blob],`sign-${i+1}.png`,{type:'image/png'})) : reject(new Error('יצירת התמונה נכשלה')),'image/png')))).then(files => { if (revision === imageRevision) imageFiles = files; }).catch(err => { if (revision === imageRevision) error(err.message); });
   } catch (err) { error(err.message); }
 }
@@ -87,7 +89,7 @@ function validated() {
 }
 function currentEntry(target) { return entries.find(e => e.uid === target.closest('[data-uid]')?.dataset.uid); }
 $('cards').addEventListener('input',event => { const e = currentEntry(event.target), key = event.target.dataset.field; if (!e || !Object.hasOwn(e.draft,key) || key === 'barcodes') return; e.draft[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value; schedule(); });
-$('cards').addEventListener('change',event => { if (event.target.dataset.field === 'profitMode') renderCards(); });
+$('cards').addEventListener('change',event => { if (['profitMode', 'promoBadge'].includes(event.target.dataset.field)) renderCards(); });
 $('cards').addEventListener('toggle',event => { if (event.target.classList?.contains('template-details') && event.target.open) schedule(); },true);
 $('cards').addEventListener('keydown',event => { if (event.key === 'Enter' && event.target.matches('[data-code-input]')) { event.preventDefault(); addCode(currentEntry(event.target),event.target.value); } });
 $('cards').addEventListener('click',event => {
