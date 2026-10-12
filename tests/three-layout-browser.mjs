@@ -37,7 +37,7 @@ export async function checkThreeLayout({ page, name, out, ok, eq, load }) {
     const original = CanvasRenderingContext2D.prototype.strokeRect;
     const rows = [];
     CanvasRenderingContext2D.prototype.strokeRect = function(x, y, w, h) {
-      if (this.strokeStyle === '#e11d48') rows.push({ x, y, w, h });
+      if (this.strokeStyle === '#000000' && this.lineWidth === 5) rows.push({ x, y, w, h });
       return original.call(this, x, y, w, h);
     };
     try {
