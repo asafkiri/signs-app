@@ -2,7 +2,7 @@ import { VERSION, TEMPLATES, newDraft, cleanDraft, buildSign, previewSign, recom
 import { previewCanvas, renderPage } from './familiar-render.js';
 import { canvasesToPDF } from './pdf.js';
 import { startScanner, prepareScanner } from './scanner.js';
-const $ = id => document.getElementById(id), PREFIX = 'signs-app:v1:', ITEM = PREFIX + 'item:', WORK = PREFIX + 'workspace';
+const $ = id => document.getElementById(id), PREFIX = 'signs-app:v1:', ITEM = PREFIX + 'item:', WORK = PREFIX + 'workspace', CLEAR_UNDO = PREFIX + 'clear-undo';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let entries = [], saved = [], selected = new Set(), layout = '4', type = 'indoor', pages = [], imageFiles = [], imageReady = Promise.resolve(), imageRevision = 0;
 let timer, refreshTimer, pdfFile = null, stopCamera = null, scanGeneration = 0, scanTarget = null;
@@ -19,6 +19,34 @@ if (work && Array.isArray(work.entries) && work.entries.length && work.entries.l
   if (['indoor','outdoor'].includes(work.type)) type = work.type;
 } else { entries = [entry(old || newDraft())]; type = entries[0].draft.type; }
 function persist() { write(WORK, { version: 2, layout, type, entries: entries.map(({savedId,draft}) => ({savedId,draft})) }); }
+let clearUndo = read(CLEAR_UNDO);
+if (!clearUndo || !Array.isArray(clearUndo.entries) || !clearUndo.entries.length || clearUndo.entries.length > 30 || !['indoor','outdoor'].includes(clearUndo.type) || !['4','3','2small','2','1'].includes(clearUndo.layout)) clearUndo = null;
+function updateClearUndo() { $('clear-undo').hidden = !clearUndo; $('clear-all-signs').disabled = !!clearUndo; }
+function discardClearUndo() {
+  if (!clearUndo) return;
+  clearUndo = null;
+  try { localStorage.removeItem(CLEAR_UNDO); } catch { storageError(); }
+  updateClearUndo();
+}
+updateClearUndo();
+$('clear-all-signs').addEventListener('click',() => {
+  if (clearUndo) return;
+  clearUndo = { layout, type, entries: entries.map(({savedId,draft}) => ({savedId,draft:cleanDraft(draft)})) };
+  write(CLEAR_UNDO,clearUndo);
+  const {store,vat} = entries[0].draft;
+  closeCamera();
+  entries = [entry({...newDraft(),type,store,vat})];
+  renderCards(); updateClearUndo();
+  $('undo-clear').focus({preventScroll:true});
+});
+$('undo-clear').addEventListener('click',() => {
+  if (!clearUndo) return;
+  const previous = clearUndo;
+  entries = previous.entries.map(e => entry(e?.draft,saved.some(s => s.id === e?.savedId) ? e.savedId : null));
+  layout = previous.layout; type = previous.type;
+  discardClearUndo(); renderCards();
+  $('clear-all-signs').focus({preventScroll:true});
+});
 function field(e, key, label, options = {}) {
   const id = `${e.uid}-${key}`, d = e.draft, { placeholder = '', inputmode = '', maxlength = 100, inputType = 'text' } = options;
   return `<label for="${id}">${label}</label><input id="${id}" data-field="${key}" value="${esc(d[key])}" type="${inputType}" maxlength="${maxlength}" ${inputmode ? `inputmode="${inputmode}" dir="ltr"` : ''} placeholder="${esc(placeholder)}" autocomplete="off">`;
@@ -88,12 +116,13 @@ function validated() {
   catch(err) { error(err.message); $('form-error').scrollIntoView({block:'center',behavior:'smooth'}); return false; }
 }
 function currentEntry(target) { return entries.find(e => e.uid === target.closest('[data-uid]')?.dataset.uid); }
-$('cards').addEventListener('input',event => { const e = currentEntry(event.target), key = event.target.dataset.field; if (!e || !Object.hasOwn(e.draft,key) || key === 'barcodes') return; e.draft[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value; schedule(); });
+$('cards').addEventListener('input',event => { const e = currentEntry(event.target), key = event.target.dataset.field; if (!e || !Object.hasOwn(e.draft,key) || key === 'barcodes') return; discardClearUndo(); e.draft[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value; schedule(); });
 $('cards').addEventListener('change',event => { if (['profitMode', 'promoBadge'].includes(event.target.dataset.field)) renderCards(); });
 $('cards').addEventListener('toggle',event => { if (event.target.classList?.contains('template-details') && event.target.open) schedule(); },true);
 $('cards').addEventListener('keydown',event => { if (event.key === 'Enter' && event.target.matches('[data-code-input]')) { event.preventDefault(); addCode(currentEntry(event.target),event.target.value); } });
 $('cards').addEventListener('click',event => {
   const button = event.target.closest('button'), e = currentEntry(event.target); if (!button || !e) return;
+  if (button.dataset.action !== 'scan') discardClearUndo();
   if (button.dataset.kind) { e.draft.kind = button.dataset.kind; renderCards(); }
   else if (button.dataset.entry) { e.draft.entry = button.dataset.entry; renderCards(); }
   else if (button.dataset.template) { e.draft.template = button.dataset.template; renderCards(); }
@@ -104,10 +133,10 @@ $('cards').addEventListener('click',event => {
   else if (button.dataset.action === 'add-code') addCode(e,button.closest('[data-uid]').querySelector('[data-code-input]').value);
   else if (button.dataset.action === 'scan') openScanner(e.uid);
 });
-$('new-sign').addEventListener('click',() => { if (entries.length >= 30) return toast('אפשר עד 30 שלטים בכל עריכה'); const last = entries.at(-1).draft; const e = entry({...newDraft(),type,store:last.store,vat:last.vat}); entries.push(e); renderCards(); $('cards').querySelector(`[data-uid="${e.uid}"] [data-field="title"]`).focus(); });
-document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click',() => { type = b.dataset.type; entries.forEach(e => e.draft.type = type); showEditor(); renderCards(); }));
+$('new-sign').addEventListener('click',() => { if (entries.length >= 30) return toast('אפשר עד 30 שלטים בכל עריכה'); discardClearUndo(); const last = entries.at(-1).draft; const e = entry({...newDraft(),type,store:last.store,vat:last.vat}); entries.push(e); renderCards(); $('cards').querySelector(`[data-uid="${e.uid}"] [data-field="title"]`).focus(); });
+document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click',() => { discardClearUndo(); type = b.dataset.type; entries.forEach(e => e.draft.type = type); showEditor(); renderCards(); }));
 document.querySelectorAll('[data-layout]').forEach(b => b.addEventListener('click',() => { layout = b.dataset.layout; renderCards(); }));
-function addCode(e, value) { const code = String(value || '').trim(); if (!e || !/^[\x20-\x7e]{1,32}$/.test(code)) return toast('ברקוד לא תקין — עד 32 תווים ללא עברית'); if (e.draft.barcodes.includes(code)) return toast('הברקוד כבר מופיע'); if (e.draft.barcodes.length >= 24) return toast('אפשר עד 24 ברקודים לשלט'); e.draft.barcodes.push(code); renderCards(); }
+function addCode(e, value) { const code = String(value || '').trim(); if (!e || !/^[\x20-\x7e]{1,32}$/.test(code)) return toast('ברקוד לא תקין — עד 32 תווים ללא עברית'); if (e.draft.barcodes.includes(code)) return toast('הברקוד כבר מופיע'); if (e.draft.barcodes.length >= 24) return toast('אפשר עד 24 ברקודים לשלט'); discardClearUndo(); e.draft.barcodes.push(code); renderCards(); }
 function loadSaved() {
   const items = [];
   try { for (let i=0;i<localStorage.length;i++) { const key=localStorage.key(i); if (!key?.startsWith(ITEM)) continue; const item=read(key); if (!item || item.id !== key.slice(ITEM.length)) continue; try { item.draft=cleanDraft(item.draft); item.sign=buildSign(item.draft); items.push(item); } catch {} } } catch { storageError(); }
@@ -122,7 +151,7 @@ function renderSaved() {
   }); updateSelection();
 }
 function updateSelection() { $('load-selected').disabled=!selected.size; $('load-selected').textContent=selected.size?`ערוך נבחרים (${selected.size})`:'ערוך נבחרים'; $('select-all').checked=!!saved.length&&selected.size===saved.length; $('select-all').indeterminate=selected.size>0&&selected.size<saved.length; }
-function loadEntries(items) { if(items.length>30)return toast('אפשר לערוך עד 30 שלטים יחד'); if(entries.some(e=>e.draft.title||e.draft.price||e.draft.free)&&!confirm('להחליף את השלטים שבעריכה בבחירה הזאת? השינויים שלא שמרת ברשימה יוחלפו.'))return; entries=items.map(s=>entry(s.draft,s.id));type=entries[0].draft.type;renderCards();showEditor();window.scrollTo(0,0); }
+function loadEntries(items) { if(items.length>30)return toast('אפשר לערוך עד 30 שלטים יחד'); if(entries.some(e=>e.draft.title||e.draft.price||e.draft.free)&&!confirm('להחליף את השלטים שבעריכה בבחירה הזאת? השינויים שלא שמרת ברשימה יוחלפו.'))return; discardClearUndo(); entries=items.map(s=>entry(s.draft,s.id));type=entries[0].draft.type;renderCards();showEditor();window.scrollTo(0,0); }
 function showEditor() { $('editor-view').hidden=false;$('library-view').hidden=true;$('action-bar').hidden=false; }
 function showLibrary() { loadSaved();$('editor-view').hidden=true;$('library-view').hidden=false;$('action-bar').hidden=true;window.scrollTo(0,0); }
 $('open-library').addEventListener('click',showLibrary);$('back').addEventListener('click',showLibrary);$('library-back').addEventListener('click',showEditor);
@@ -140,7 +169,7 @@ function closeCamera(){scanGeneration++;stopCamera?.();stopCamera=null;$('camera
 async function openScanner(uid){closeCamera();scanTarget=uid;const generation=scanGeneration;$('scan-status').textContent='מפעיל מצלמה…';$('scan-torch').hidden=true;$('scan-dialog').showModal();try{const stop=await startScanner($('camera'),code=>{addCode(entries.find(e=>e.uid===scanTarget),code);if($('scan-dialog').open)$('scan-dialog').close();},()=>generation!==scanGeneration||!$('scan-dialog').open,{frame:$('scan-frame'),torchButton:$('scan-torch'),onStatus:text=>{$('scan-status').textContent=text;}});if(generation!==scanGeneration)stop();else{stopCamera=stop;}}catch(err){if(generation===scanGeneration)$('scan-status').textContent=err.message;}}
 $('cards').addEventListener('toggle',ev=>{if(ev.target.matches('.barcode-details')&&ev.target.open)prepareScanner();},true);
 $('close-scan').addEventListener('click',()=>$('scan-dialog').close());$('scan-dialog').addEventListener('close',closeCamera);window.addEventListener('pagehide',closeCamera);document.addEventListener('visibilitychange',()=>{if(document.hidden){closeCamera();if($('scan-dialog').open)$('scan-dialog').close();}});
-$('settings').addEventListener('click',()=>{$('store-setting').value=entries[0].draft.store;$('settings-dialog').showModal();});$('close-settings').addEventListener('click',()=>$('settings-dialog').close());$('save-settings').addEventListener('click',()=>{entries.forEach(e=>e.draft.store=$('store-setting').value.trim());$('settings-dialog').close();renderCards();});
+$('settings').addEventListener('click',()=>{$('store-setting').value=entries[0].draft.store;$('settings-dialog').showModal();});$('close-settings').addEventListener('click',()=>$('settings-dialog').close());$('save-settings').addEventListener('click',()=>{discardClearUndo();entries.forEach(e=>e.draft.store=$('store-setting').value.trim());$('settings-dialog').close();renderCards();});
 $('backup').addEventListener('click',()=>download(new Blob([JSON.stringify({app:'signs-app',version:1,signs:saved.map(({id,updatedAt,draft})=>({id,updatedAt,draft}))},null,2)],{type:'application/json'}),'signs-backup.json'));
 $('restore').addEventListener('click',()=>$('restore-file').click());$('restore-file').addEventListener('change',async ev=>{const file=ev.target.files[0];if(!file)return;try{if(file.size>2000000)throw new Error('קובץ הגיבוי גדול מדי');const data=JSON.parse(await file.text());if(data.app!=='signs-app'||data.version!==1||!Array.isArray(data.signs)||data.signs.length>150)throw new Error('זה אינו גיבוי נתמך');const incoming=data.signs.map(s=>{if(!s?.draft)throw new Error('שלט לא תקין בגיבוי');const d=cleanDraft(s.draft);buildSign(d);return d;});if(incoming.length+saved.length>150)throw new Error('אין מספיק מקום ברשימה');if(!confirm(`לייבא ${incoming.length} שלטים כעותקים חדשים? הקיימים לא יימחקו.`))return;let n=0;for(const d of incoming){const id=crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:d}))break;n++;}loadSaved();toast(`יובאו ${n} שלטים`);}catch(err){toast(err.message);}finally{$('restore-file').value='';}});
 await document.fonts?.load('900 100px "Outdoor Black"', 'מבצע לחמניות ₪ 12.90').catch(()=>{});
