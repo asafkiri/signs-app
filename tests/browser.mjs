@@ -5,6 +5,7 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { VERSION } from '../model.js';
 import { checkIndoorPrices } from './indoor-price-browser.mjs';
+import { checkThreeLayout } from './three-layout-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
@@ -22,13 +23,13 @@ try{
   const card=()=>page.locator('#cards>.card').first(),field=k=>card().locator(`[data-field="${k}"]`);
   eq(await card().locator('.barcode-details').evaluate(e=>e.open),false);
   eq(await card().locator('.kind-row button').allTextContents(),['מחיר ליח׳','כמות במחיר','% הנחה']);
-  eq(await page.locator('#layouts button').allTextContents(),['4 בדף','2 בדף (קטן)','2 בדף (גדול)','1 בדף (רוחב)']);
+  eq(await page.locator('#layouts button').allTextContents(),['4 בדף','3 בדף','2 בדף (קטן)','2 בדף (גדול)','1 בדף (רוחב)']);
   eq(await page.locator('#layouts [aria-pressed=true]').textContent(),'4 בדף');
   ok((await page.locator('#signPages').boundingBox()).y<720,'A4 preview must be immediately below compact editor');
   eq(await field('title').inputValue(),'');await page.locator('#share-images').click();ok(await page.locator('#form-error').isVisible());eq(await page.evaluate(()=>window.__shared.length),0);
   await field('title').fill('לחמניות עשרייה ברמן');await field('price').fill('12.90');await page.waitForTimeout(250);
   if(name==='chromium'){await page.screenshot({path:path.join(out,'familiar-mobile.png'),fullPage:true});await page.locator('#signPages canvas').first().screenshot({path:path.join(out,'indoor-four.png')});}
-  for(const layout of ['4','2small','2','1']){await page.locator(`[data-layout="${layout}"]`).click();eq(await page.locator('#signPages canvas').first().evaluate(c=>[c.width,c.height]),layout==='1'?[1754,1240]:[1240,1754]);}
+  for(const layout of ['4','3','2small','2','1']){await page.locator(`[data-layout="${layout}"]`).click();eq(await page.locator('#signPages canvas').first().evaluate(c=>[c.width,c.height]),layout==='1'?[1754,1240]:[1240,1754]);}
   await page.locator('[data-layout="4"]').click();
   await card().locator('[data-entry=calc]').click();await field('cost').fill('10');await page.waitForTimeout(200);await card().locator('[data-action=apply]').click();eq(await field('price').inputValue(),'14.90');
   await card().locator('[data-kind=bundle]').click();await field('quantity').fill('4');await page.waitForTimeout(200);await card().locator('[data-action=apply]').click();eq(await field('price').inputValue(),'58.90');
@@ -54,6 +55,7 @@ try{
   await page.locator('[data-type=indoor]').click();await field('title').fill('<img src=x onerror=alert(1)>');await page.locator('#save-sign').click();eq(await page.locator('#library-list img').count(),0);
   for(const width of [320,390,430,1440]){await page.setViewportSize({width,height:900});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);}
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
+  await checkThreeLayout({page,name,out,ok,eq,load});
   eq(errors,[]);await context.close();
   // Existing v1 storage is read, not overwritten or silently repriced.
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
