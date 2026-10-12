@@ -1,5 +1,5 @@
 // All pricing is per selling unit. A bundle price is a total INCLUDING VAT.
-export const VERSION = '1.6.1';
+export const VERSION = '1.7.0';
 export const TEMPLATES = [
   ['frame', 'כוכב מבצע', 'מחיר לבן ענק בתוך כוכב שחור'],
   ['banner', 'התפוצצות מחיר', 'מבצע כמות בהתפוצצות שחורה רחבה'],
@@ -10,7 +10,7 @@ export const TEMPLATES = [
   ['elegant', 'מינימליסטי מודגש', 'מחיר ענק בבלוק שחור וקרני הדגשה']
 ];
 export function newDraft() {
-  return { title: '', subtitle: '', entry: 'manual', kind: 'unit', quantity: '2', price: '', free: '', pct: '', profitMode: 'markup', cost: '', vat: '18', margin: '25', rounding: 'shop', type: 'indoor', template: 'frame', store: 'מיני מרקט שלום', banner: 'מבצע!', note: '', oldPrice: '', start: '', end: '', barcodes: [], withBarcodes: false };
+  return { title: '', subtitle: '', entry: 'manual', kind: 'unit', quantity: '2', price: '', free: '', pct: '', profitMode: 'markup', cost: '', vat: '18', margin: '25', rounding: 'shop', type: 'indoor', template: 'frame', store: 'מיני מרקט שלום', banner: 'מבצע!', note: '', oldPrice: '', start: '', end: '', barcodes: [], withBarcodes: false, promoBadge: false };
 }
 export function number(value, label = 'מספר', min = 0, max = 1000000) {
   const raw = String(value ?? '').trim();
@@ -55,7 +55,7 @@ export function cleanDraft(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return d;
   for (const key of Object.keys(d)) {
     if (key === 'barcodes') d.barcodes = Array.isArray(input.barcodes) ? [...new Set(input.barcodes.filter(x => typeof x === 'string' && /^[\x20-\x7e]{1,32}$/.test(x)).map(x => x.trim()).filter(Boolean))].slice(0, 24) : [];
-    else if (key === 'withBarcodes') d[key] = input[key] === true;
+    else if (key === 'withBarcodes' || key === 'promoBadge') d[key] = input[key] === true;
     else if (typeof input[key] === 'string') d[key] = input[key].slice(0, 300);
   }
   if (!['indoor', 'outdoor'].includes(d.type)) d.type = 'indoor';
@@ -94,7 +94,7 @@ export function buildSign(input) {
   const oldPrice = d.oldPrice ? number(d.oldPrice, 'מחיר רגיל ליחידה', 0.01) : null;
   if (oldPrice !== null && price !== null && oldPrice <= price / quantity) throw new Error('המחיר הרגיל ליחידה צריך להיות גבוה ממחיר המבצע ליחידה');
   // Only this object is sent to the renderer. Costs and margins NEVER appear on signs.
-  return { title: d.title, subtitle: d.subtitle, kind: d.kind, price, quantity, pct, free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, note: d.note, oldPrice, start: d.start, end: d.end, barcodes: d.barcodes, withBarcodes: d.withBarcodes };
+  return { title: d.title, subtitle: d.subtitle, kind: d.kind, price, quantity, pct, free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, note: d.note, oldPrice, start: d.start, end: d.end, barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
 }
 export function offerText(s) {
   if (s.kind === 'free') return s.free;
@@ -130,5 +130,5 @@ export function shopRound(value) {
 // Export continues to require buildSign(), which validates the complete offer.
 export function previewSign(input) {
   const d = cleanDraft(input), n = value => /^\d+(?:[.,]\d+)?$/.test(String(value)) ? Number(String(value).replace(',', '.')) : 0;
-  return { title: d.title, subtitle: d.subtitle, kind: d.kind, quantity: n(d.quantity), price: n(d.price), pct: n(d.pct), free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, oldPrice: n(d.oldPrice), note: d.note, start: dateOK(d.start) ? d.start : '', end: dateOK(d.end) ? d.end : '', barcodes: d.barcodes, withBarcodes: d.withBarcodes };
+  return { title: d.title, subtitle: d.subtitle, kind: d.kind, quantity: n(d.quantity), price: n(d.price), pct: n(d.pct), free: d.free, type: d.type, template: d.template, store: d.store, banner: d.banner, oldPrice: n(d.oldPrice), note: d.note, start: dateOK(d.start) ? d.start : '', end: dateOK(d.end) ? d.end : '', barcodes: d.barcodes, withBarcodes: d.withBarcodes, promoBadge: d.promoBadge };
 }

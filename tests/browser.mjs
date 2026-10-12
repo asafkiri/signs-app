@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { VERSION } from '../model.js';
 import { checkIndoorPrices } from './indoor-price-browser.mjs';
 import { checkThreeLayout } from './three-layout-browser.mjs';
+import { checkPromoBadge } from './promo-badge-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
@@ -56,6 +57,7 @@ try{
   for(const width of [320,390,430,1440]){await page.setViewportSize({width,height:900});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);}
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
   await checkThreeLayout({page,name,out,ok,eq,load});
+  await checkPromoBadge({page,name,out,ok,eq,load});
   eq(errors,[]);await context.close();
   // Existing v1 storage is read, not overwritten or silently repriced.
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
