@@ -107,9 +107,9 @@ export function drawSignSlot(ctx, s, y0, slotH, W) {
     ctx.textAlign = 'center'; ctx.direction = 'rtl'; ctx.textBaseline = 'alphabetic';
   const pad = 40;
     const x0 = pad, x1 = W - pad, cx = W / 2;
-    ctx.strokeStyle = '#e11d48'; ctx.lineWidth = 5;
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 5;
     ctx.strokeRect(x0, y0, x1 - x0, slotH);
-    ctx.strokeStyle = '#fda4af'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#000000'; ctx.lineWidth = 1.5;
     ctx.strokeRect(x0 + 10, y0 + 10, x1 - x0 - 20, slotH - 20);
     const prods = signProductsFor(s);
     const buildLines = (font) => {

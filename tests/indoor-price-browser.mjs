@@ -34,7 +34,7 @@ export async function checkIndoorPrices({ page, name, out, ok, eq }) {
       return originals.stroke.apply(this, args);
     };
     proto.strokeRect = function(x, y, w, h) {
-      if (current && this.strokeStyle === '#e11d48') {
+      if (current && this.strokeStyle === '#000000' && this.lineWidth === 5) {
         const a = point(this, x, y), b = point(this, x + w, y + h);
         current.bounds = { left: a.x, right: b.x, top: a.y, bottom: b.y };
       }
