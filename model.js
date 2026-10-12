@@ -1,5 +1,5 @@
 // All pricing is per selling unit. A bundle price is a total INCLUDING VAT.
-export const VERSION = '1.7.1';
+export const VERSION = '1.8.0';
 export const TEMPLATES = [
   ['frame', 'כוכב מבצע', 'מחיר לבן ענק בתוך כוכב שחור'],
   ['banner', 'התפוצצות מחיר', 'מבצע כמות בהתפוצצות שחורה רחבה'],

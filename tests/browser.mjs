@@ -7,6 +7,7 @@ import { VERSION } from '../model.js';
 import { checkIndoorPrices } from './indoor-price-browser.mjs';
 import { checkThreeLayout } from './three-layout-browser.mjs';
 import { checkPromoBadge } from './promo-badge-browser.mjs';
+import { checkClearAll } from './clear-all-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
@@ -27,7 +28,7 @@ try{
   eq(await card().locator('.kind-row button').allTextContents(),['מחיר ליח׳','כמות במחיר','% הנחה']);
   eq(await page.locator('#layouts button').allTextContents(),['4 בדף','3 בדף','2 בדף (קטן)','2 בדף (גדול)','1 בדף (רוחב)']);
   eq(await page.locator('#layouts [aria-pressed=true]').textContent(),'4 בדף');
-  ok((await page.locator('#signPages').boundingBox()).y<720,'A4 preview must be immediately below compact editor');
+  ok((await page.locator('#signPages').boundingBox()).y<720+(await page.locator('.editor-actions').boundingBox()).height+12,'A4 preview remains below compact editor and its new action row');
   eq(await field('title').inputValue(),'');await page.locator('#share-images').click();ok(await page.locator('#form-error').isVisible());eq(await page.evaluate(()=>window.__shared.length),0);
   await field('title').fill('לחמניות עשרייה ברמן');await field('price').fill('12.90');await page.waitForTimeout(250);
   if(name==='chromium'){await page.screenshot({path:path.join(out,'familiar-mobile.png'),fullPage:true});await page.locator('#signPages canvas').first().screenshot({path:path.join(out,'indoor-four.png')});}
@@ -59,6 +60,7 @@ try{
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
   await checkThreeLayout({page,name,out,ok,eq,load});
   await checkPromoBadge({page,name,out,ok,eq,load});
+  await checkClearAll({page,name,out,ok,eq,load});
   eq(errors,[]);await context.close();
   // Existing v1 storage is read, not overwritten or silently repriced.
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
