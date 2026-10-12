@@ -42,7 +42,7 @@ export async function checkIndoorPrices({ page, name, out, ok, eq }) {
     };
     const cases = [], images = [];
     const render = (draft, layout, id, screenshot = false) => {
-      current = { id, layout, labels: [], strokes: [] };
+      current = { id, layout, title: draft.title, labels: [], strokes: [] };
       const canvas = renderPage({ kind: 'signs', layout, landscape: layout === '1', signs: [buildSign({ ...newDraft(), ...draft })] });
       const captured = current;
       current = null;
@@ -54,7 +54,7 @@ export async function checkIndoorPrices({ page, name, out, ok, eq }) {
         { id: 'cold-cups', title: 'כוסות לשתייה קרה שקד', quantity: '3', oldPrice: '4' },
         { id: 'hot-cups', title: 'כוסות לשתייה חמה שקד', quantity: '2', oldPrice: '5.9' }
       ];
-      for (const layout of ['4', '2small', '2', '1']) {
+      for (const layout of ['4', '3', '2small', '2', '1']) {
         for (const example of examples) {
           const draft = { ...example, kind: 'bundle', price: '10' };
           cases.push({
@@ -91,7 +91,9 @@ export async function checkIndoorPrices({ page, name, out, ok, eq }) {
     const label = old[0];
     eq(label.color, '#000000');
     ok(label.font.startsWith('900 '), `${context}: old unit price stays bold`);
-    for (const text of row.labels.filter(item => item === label || item.text.startsWith('בתוקף עד ') || item.text.startsWith('* '))) {
+    const titleLabels = row.labels.filter(item => item.color === '#0f172a');
+    ok(row.title.split(' ').every(word => titleLabels.map(item => item.text).join(' ').includes(word)), `${context}: complete product title is retained`);
+    for (const text of row.labels.filter(item => item === label || item.color === '#0f172a' || item.text.startsWith('בתוקף עד ') || item.text.startsWith('* '))) {
       ok(text.left >= row.bounds.left && text.right <= row.bounds.right && text.top >= row.bounds.top && text.bottom <= row.bounds.bottom, `${context}: label stays inside the sign: ${JSON.stringify(text)}`);
     }
     ok(row.strokes.some(stroke => stroke.color === '#000000'
@@ -103,7 +105,19 @@ export async function checkIndoorPrices({ page, name, out, ok, eq }) {
       ok(!overlap(label, other), `${context}: old price must not overlap ${JSON.stringify(other.text)}`);
     }
     if (row.baseline) {
-      eq({ context, offer: priceLabels(row).map(({ text, font }) => ({ text, font })) }, { context, offer: priceLabels(row.baseline).map(({ text, font }) => ({ text, font })) });
+      if (row.layout === '3') {
+        // The new taller slot can move the comparison below the offer rather
+        // than beside it. It must still enlarge the same four-per-page offer.
+        const four = result.cases.find(item => item.layout === '4' && item.id === row.id);
+        const current = priceLabels(row), previous = priceLabels(four);
+        eq(current.map(item => item.text), previous.map(item => item.text));
+        for (const [i, item] of current.entries()) {
+          const size = font => Number(font.match(/([\d.]+)px/)[1]);
+          ok(size(item.font) >= size(previous[i].font), `${context}: three-per-page offer stays at least as large as four-per-page`);
+        }
+      } else {
+        eq({ context, offer: priceLabels(row).map(({ text, font }) => ({ text, font })) }, { context, offer: priceLabels(row.baseline).map(({ text, font }) => ({ text, font })) });
+      }
       ok(priceLabels(row).length >= 4, `${context}: main offer was checked`);
     }
     for (const date of row.labels.filter(item => item.text.startsWith('בתוקף עד '))) {

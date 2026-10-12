@@ -15,7 +15,7 @@ const entry = (draft = newDraft(), savedId = null) => ({ uid: crypto.randomUUID(
 const work = read(WORK), old = read(PREFIX + 'draft');
 if (work && Array.isArray(work.entries) && work.entries.length && work.entries.length <= 30) {
   entries = work.entries.map(e => entry(e?.draft, typeof e?.savedId === 'string' ? e.savedId : null));
-  if (['4','2small','2','1'].includes(work.layout)) layout = work.layout;
+  if (['4','3','2small','2','1'].includes(work.layout)) layout = work.layout;
   if (['indoor','outdoor'].includes(work.type)) type = work.type;
 } else { entries = [entry(old || newDraft())]; type = entries[0].draft.type; }
 function persist() { write(WORK, { version: 2, layout, type, entries: entries.map(({savedId,draft}) => ({savedId,draft})) }); }

@@ -114,7 +114,7 @@ export function renderPage(plan) {
     }); return canvas;
   }
   c.save(); if (plan.layout === '2small') { c.translate(canvas.width * .06, canvas.height * .06); c.scale(.88, .88); }
-  const count = plan.layout === '4' ? 4 : plan.layout === '1' ? 1 : 2;
+  const count = plan.layout === '4' ? 4 : plan.layout === '3' ? 3 : plan.layout === '1' ? 1 : 2;
   const pad = 38, gap = count === 4 ? 15 : 24, width = canvas.width - pad * 2, height = (canvas.height - pad * 2 - (count - 1) * gap) / count;
   plan.signs.forEach((sign, i) => { const draw = sign.type === 'outdoor' ? drawOutdoor : drawIndoor; draw(c, sign, pad, pad + i * (height + gap), width, height); });
   c.restore(); return canvas;

@@ -1,5 +1,5 @@
 // All pricing is per selling unit. A bundle price is a total INCLUDING VAT.
-export const VERSION = '1.5.1';
+export const VERSION = '1.6.0';
 export const TEMPLATES = [
   ['frame', 'כוכב מבצע', 'מחיר לבן ענק בתוך כוכב שחור'],
   ['banner', 'התפוצצות מחיר', 'מבצע כמות בהתפוצצות שחורה רחבה'],
@@ -102,13 +102,13 @@ export function offerText(s) {
   return s.kind === 'bundle' ? `${s.quantity} ב־${priceText(s.price)} ₪` : `${priceText(s.price)} ₪ ליחידה`;
 }
 export function pagePlan(signs, layout = '2') {
-  if (!['1', '2', '2small', '4'].includes(layout)) throw new Error('פריסת דף לא מוכרת');
+  if (!['1', '2', '2small', '3', '4'].includes(layout)) throw new Error('פריסת דף לא מוכרת');
   if (!signs.length) throw new Error('לא נבחרו שלטים');
   if (signs.length > 30) throw new Error('אפשר להדפיס עד 30 שלטים בכל פעם');
   const pages = [];
   let pending = [];
   const flush = () => { if (pending.length) { pages.push({ kind: 'signs', signs: pending, layout, landscape: layout === '1' }); pending = []; } };
-  const count = layout === '1' ? 1 : layout === '4' ? 4 : 2;
+  const count = layout === '1' ? 1 : layout === '4' ? 4 : layout === '3' ? 3 : 2;
   for (const sign of signs) {
     if (sign.type === 'outdoor') { flush(); pages.push({ kind: 'signs', signs: [sign], layout: '1', landscape: true }); }
     else { pending.push(sign); if (pending.length === count) flush(); }

@@ -19,7 +19,30 @@ test('below-target manual override has honest actual margin', () => { const r = 
 test('barcodes optional, deduplicated, preserving leading zeros', () => { const d = cleanDraft({ barcodes: ['001234', '001234', '<invalid Hebrew א>', null], withBarcodes: true }); assert.deepEqual(d.barcodes, ['001234']); assert.equal(newDraft().withBarcodes, false); });
 test('import never trusts unknown enum values', () => { const d = cleanDraft({ type: 'evil', template: 'bad', entry: 'oops', kind: 'nope', rounding: 'bad' }); assert.equal(d.template, 'frame'); assert.equal(d.kind, 'unit'); assert.equal(d.type, 'indoor'); });
 test('seven distinct outdoor template ids', () => assert.equal(new Set(TEMPLATES.map(t => t[0])).size, 7));
-test('one, two, small two, four page layouts and trailing blanks', () => { for (const [layout, count] of [['1', 5], ['2', 3], ['2small', 3], ['4', 2]]) { const pages = pagePlan(Array.from({ length: 5 }, () => sign({})), layout); assert.equal(pages.length, count); assert.equal(pages.flatMap(p => p.signs).length, 5); } });
+test('one, two, small two, three, four page layouts and trailing blanks', () => { for (const [layout, count] of [['1', 5], ['2', 3], ['2small', 3], ['3', 2], ['4', 2]]) { const pages = pagePlan(Array.from({ length: 5 }, () => sign({})), layout); assert.equal(pages.length, count); assert.equal(pages.flatMap(p => p.signs).length, 5); } });
+test('three-per-page keeps every sign in order across exact and partial pages', () => {
+  for (const count of [1, 2, 3, 4, 6, 7, 30]) {
+    const signs = Array.from({ length: count }, (_, i) => sign({ title: `שלט ${i + 1}` }));
+    const pages = pagePlan(signs, '3');
+    assert.equal(pages.length, Math.ceil(count / 3));
+    assert.deepEqual(pages.flatMap(page => page.signs), signs);
+    pages.forEach((page, i) => {
+      assert.equal(page.layout, '3');
+      assert.equal(page.landscape, false);
+      assert.equal(page.signs.length, Math.min(3, count - i * 3));
+    });
+  }
+});
+test('three-per-page preserves outdoor boundaries and separate barcode pages', () => {
+  const signs = Array.from({ length: 7 }, (_, i) => sign({ title: `שלט ${i + 1}` }));
+  signs[0] = sign({ title: 'שלט 1', withBarcodes: true, barcodes: Array.from({ length: 8 }, (_, i) => `729000000000${i}`) });
+  signs[2] = sign({ title: 'שלט 3', type: 'outdoor' });
+  const pages = pagePlan(signs, '3');
+  assert.deepEqual(pages.map(page => page.kind), ['signs', 'signs', 'signs', 'signs', 'barcodes', 'barcodes']);
+  assert.deepEqual(pages.filter(page => page.kind === 'signs').map(page => [page.layout, page.landscape, page.signs.length]), [['3', false, 2], ['1', true, 1], ['3', false, 3], ['3', false, 1]]);
+  assert.deepEqual(pages.filter(page => page.kind === 'signs').flatMap(page => page.signs), signs);
+  assert.deepEqual(pages.filter(page => page.kind === 'barcodes').map(page => page.codes.length), [7, 1]);
+});
 test('outdoor always one landscape page, mixed order is preserved', () => { const signs = [sign({ title: 'א' }), sign({ title: 'ב', type: 'outdoor' }), sign({ title: 'ג' })]; const pages = pagePlan(signs, '4'); assert.deepEqual(pages.flatMap(p => p.signs).map(s => s.title), ['א', 'ב', 'ג']); assert.equal(pages[1].landscape, true); });
 test('barcode pages are explicit and separate from customer signs', () => { assert.equal(pagePlan([sign({ barcodes: ['123'] })]).length, 1); const pages = pagePlan([sign({ barcodes: ['123'], withBarcodes: true })]); assert.equal(pages.length, 2); assert.equal(pages[1].kind, 'barcodes'); });
 test('empty or oversized print selection fails safely', () => { assert.throws(() => pagePlan([])); assert.throws(() => pagePlan(Array.from({ length: 31 }, () => sign({})))); });
