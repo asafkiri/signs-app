@@ -26,7 +26,7 @@ export async function checkOutdoor({page,name,out,ok,eq,load}) {
   await page.locator('[data-type=outdoor]').click();
   await card().locator('[data-detail=extras]').evaluate(e=>{e.open=true;});
   await card().locator('[data-kind=unit]').click();
-  for(const k of ['title','subtitle','price','note','oldPrice','start','end'])await field(k).fill('');
+  for(const k of ['title','subtitle','price','note','oldPrice','end'])await field(k).fill('');
   await resetLog();await field('store').fill('מיני מרקט שלום');await settle();
   const blankThumbs=await page.locator('.template-option canvas').evaluateAll(cs=>cs.map(c=>({size:[c.width,c.height],text:window.__outdoorDraws.filter(d=>d.canvas===c).map(d=>d.text).join(' ')})));
   eq(blankThumbs.length,7);
@@ -86,8 +86,8 @@ export async function checkOutdoor({page,name,out,ok,eq,load}) {
   await field('subtitle').fill(longSubtitle);
   for(const template of templates){await resetLog();await page.locator(`[data-template=${template}]`).click();await settle();const calls=await drawn(),text=calls.map(d=>d.text).join(' ');ok(longSubtitle.split(' ').every(w=>text.includes(w)),`${name} ${template}: every long subtitle word is drawn`);for(const call of calls)for(const point of call.points)ok(point.x>=38&&point.x<=1716&&point.y>=38&&point.y<=1202,`${template}: long subtitle safe area`);await capture(`long-subtitle-${template}`);}
   // Optional long fields and user-supplied dates are drawn, without clipping or invented deadlines.
-  await field('note').fill('ניתן לערבב בין המוצרים בהתאם למוצרים המפורטים בשלט');await field('start').fill('2026-10-01');await field('end').fill('2026-10-31');await field('oldPrice').fill('12');
-  for(const template of templates){await resetLog();await page.locator(`[data-template=${template}]`).click();await settle();const text=(await drawn()).map(d=>d.text).join(' ');ok(text.includes('01.10.2026')&&text.includes('31.10.2026'),`${template}: user validity appears`);ok(text.includes('12.00'),`${template}: user old price appears`);}
+  await field('note').fill('ניתן לערבב בין המוצרים בהתאם למוצרים המפורטים בשלט');await field('end').fill('2026-10-31');await field('oldPrice').fill('12');
+  for(const template of templates){await resetLog();await page.locator(`[data-template=${template}]`).click();await settle();const text=(await drawn()).map(d=>d.text).join(' ');ok(!text.includes('01.10.2026')&&text.includes('בתוקף עד 31.10.2026'),`${template}: user validity appears`);ok(text.includes('12.00'),`${template}: user old price appears`);}
   await page.locator('#save-sign').click();const draftBefore=await page.evaluate(()=>JSON.parse(localStorage.getItem('signs-app:v1:workspace')).entries.map(e=>e.draft));const before=await page.evaluate(()=>document.querySelector('#signPages canvas').toDataURL());fs.writeFileSync(path.join(out,`${name}-before-reload.png`),Buffer.from(before.split(',')[1],'base64'));await load();eq(await page.locator('[data-type=outdoor]').getAttribute('aria-pressed'),'true');eq(await page.locator('[data-template=elegant]').getAttribute('aria-pressed'),'true');eq(await field('quantity').inputValue(),'2');eq(await field('price').inputValue(),'18');eq(await page.evaluate(()=>JSON.parse(localStorage.getItem('signs-app:v1:workspace')).entries.map(e=>e.draft)),draftBefore);const after=await page.evaluate(()=>document.querySelector('#signPages canvas').toDataURL());fs.writeFileSync(path.join(out,`${name}-after-reload.png`),Buffer.from(after.split(',')[1],'base64'));// Fresh WebKit rasterization can vary a few antialiased edge pixels across reloads.
   // CI artifact: 25 of 2,174,960 pixels changed, max 8/255; cap at 100 pixels and 8 levels.
   // Exports within a session above still require exact pixels.

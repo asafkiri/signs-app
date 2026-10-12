@@ -23,6 +23,7 @@ try{
   const load=async()=>{await page.goto('http://127.0.0.1:4173/signs-app/');await page.waitForFunction(version=>document.documentElement.dataset.version===version,VERSION);await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(150);};await load();
   const card=()=>page.locator('#cards>.card').first(),field=k=>card().locator(`[data-field="${k}"]`);
   eq(await card().locator('.barcode-details').evaluate(e=>e.open),false);
+  eq(await page.locator('[data-field=start]').count(),0);eq(await page.locator('[data-field=end]').count(),1);
   eq(await card().locator('.kind-row button').allTextContents(),['מחיר ליח׳','כמות במחיר','% הנחה']);
   eq(await page.locator('#layouts button').allTextContents(),['4 בדף','3 בדף','2 בדף (קטן)','2 בדף (גדול)','1 בדף (רוחב)']);
   eq(await page.locator('#layouts [aria-pressed=true]').textContent(),'4 בדף');
@@ -49,7 +50,7 @@ try{
   await page.locator('#open-library').click();await page.locator('.saved-sign input').last().check();await page.locator('#load-selected').click();eq(await page.locator('#cards>.card').count(),1);
   await card().locator('[data-kind=pct]').click();await field('pct').fill('25');await page.waitForTimeout(150);await page.locator('#preview-print').click();ok(await page.locator('#print-dialog').isVisible());await page.locator('#close-print').click();
   await card().locator('[data-kind=unit]').click();await field('title').fill('לחמניות עשרייה ברמן');await field('price').fill('12.90');
-  await page.locator('[data-type=outdoor]').click();eq(await page.locator('.template-option').count(),7);ok(await page.locator('#layouts').isHidden());
+  await page.locator('[data-type=outdoor]').click();eq(await page.locator('[data-field=start]').count(),0);eq(await page.locator('[data-field=end]').count(),1);eq(await page.locator('.template-option').count(),7);ok(await page.locator('#layouts').isHidden());
   for(const template of ['frame','banner','burst','ticket','elegant','split','bold']){await page.locator(`[data-template=${template}]`).click();await page.waitForTimeout(120);eq(await page.locator(`[data-template=${template}]`).getAttribute('aria-pressed'),'true');if(name==='chromium')await page.locator('#signPages canvas').first().screenshot({path:path.join(out,`template-${template}.png`)});}
   await checkOutdoor({page,name,out,ok,eq,load});
   await checkIndoorPrices({page,name,out,ok,eq});

@@ -57,7 +57,7 @@ function price(c, s, box, color = '#000') {
 }
 function dateLabel(s) {
   const f = d => d.split('-').reverse().join('.');
-  return s.start && s.end ? `${f(s.start)} – ${f(s.end)}` : s.end ? `בתוקף עד ${f(s.end)}` : s.start ? `בתוקף מ־${f(s.start)}` : '';
+  return s.end ? `בתוקף עד ${f(s.end)}` : '';
 }
 function footer(c, s, x, y, w, h) {
   const lines = [s.oldPrice ? `במקום ${money(s.oldPrice)} ₪ ליחידה` : '', s.note, dateLabel(s)].filter(Boolean);

@@ -7,7 +7,7 @@ export function indoorSign(s) {
   const f = d => d ? d.split('-').reverse().join('.') : '';
   return { ...s, qty: s.quantity, title: [s.title, s.subtitle].filter(Boolean).join(' '),
     validUntil: f(s.end), oldPrice: s.oldPrice ? s.oldPrice : '',
-    note: [s.note, s.start ? 'בתוקף מ־' + f(s.start) : ''].filter(Boolean).join(' · ') };
+    note: s.note || '' };
 }
 function signPriceTxt(v) {
   v = r2(Number(v) || 0);
