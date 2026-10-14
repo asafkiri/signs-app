@@ -1,5 +1,5 @@
 // Outdoor-only artwork. All labels originate in the sign; decoration is vector geometry.
-import { money, priceText } from './model.js';
+import { priceText } from './model.js';
 const FONT = '"Outdoor Black", Arial, sans-serif';
 const BLACK = '#000', WHITE = '#fff';
 function font(c, size) { c.font = `900 ${size}px ${FONT}`; }
@@ -36,10 +36,10 @@ function linesAt(c,str,size,width) {
 }
 // Fit actual ink bounds, trying the full region and all permitted lines BEFORE shrinking.
 // No clipping or ellipsis: even a long unbroken product name remains complete.
-function fit(c,value,b,maxSize=130,color=BLACK,maxLines=2) {
+function fit(c,value,b,maxSize=130,color=BLACK,maxLines=2,minSize=1) {
   const str=String(value||'').trim(); if(!str)return;
   let chosen;
-  for(let size=maxSize;size>=1;size--) {
+  for(let size=maxSize;size>=minSize;size--) {
     const lines=linesAt(c,str,size,b.w), ms=lines.map(l=>metrics(c,l,size));
     const gap=size*.08, height=ms.reduce((n,m)=>n+m.ascent+m.descent,0)+gap*(lines.length-1);
     if(lines.length<=maxLines && height<=b.h && ms.every(m=>m.width<=b.w)) {chosen={lines,ms,size,gap,height};break;}
@@ -107,14 +107,43 @@ function dateLabel(s) {
   const f=d=>d.split('-').reverse().join('.');
   return s.end?`בתוקף עד ${f(s.end)}`:'';
 }
+// Previous unit price as on store signs: short number + ליח׳, crossed with a black line.
+const oldLabel=s=>Number(s.oldPrice)>0?`${Math.round(Number(s.oldPrice)*100)/100} ליח׳`:'';
 function footer(c,s,{capsule=true,x=170,w=660,y=620,h=58}={}) {
-  const rows=[s.note,s.oldPrice?`במקום ${money(s.oldPrice)} ₪ ליחידה`:'',dateLabel(s)].filter(Boolean);
+  const old=oldLabel(s),rows=[s.note,old,dateLabel(s)].filter(Boolean);
   if(!rows.length)return;
   const rowH=h/rows.length;
   rows.forEach((str,i)=>{
     if(i===0 && s.note && capsule) {c.save();c.strokeStyle=BLACK;c.lineWidth=3;c.beginPath();c.roundRect(x,y,w,rowH,Math.min(18,rowH/2));c.stroke();c.restore();}
-    fit(c,str,{x:x+12,y:y+i*rowH+3,w:w-24,h:rowH-6},rows.length===1?33:25,BLACK,2);
+    const b={x:x+12,y:y+i*rowH+3,w:w-24,h:rowH-6},size=fit(c,str,b,rows.length===1?33:25,BLACK,str===old?1:2);
+    if(str===old && size) {
+      const m=metrics(c,str,size),base=b.y+(b.h-m.ascent-m.descent)/2+m.ascent,mid=b.x+b.w/2;
+      c.save();c.strokeStyle=BLACK;c.lineWidth=Math.max(1.5,size*.07);c.beginPath();
+      c.moveTo(mid-m.width/2-3,base-size*.32);c.lineTo(mid+m.width/2+3,base-size*.32);c.stroke();c.restore();
+    }
   });
+}
+// Scanned/typed barcodes, as on store signs. Whole codes per line; if they cannot stay
+// legible in the band, the last ones are summarised as "ועוד N". Each code is an LTR
+// isolate so letters/symbols (Code 128: "ABC-123", "123-") print exactly as entered.
+const CODES_H=38;
+function codes(c,s,b,maxLines=2) {
+  const list=s.barcodes||[];if(!list.length)return;
+  const head='המבצע חל על הברקודים:';
+  for(let shown=list.length;shown>=1;shown--) {
+    const items=[...list.slice(0,shown).map(code=>`\u2066${code}\u2069`),...(shown<list.length?[`ועוד ${list.length-shown}`]:[])];
+    for(let size=Math.floor(Math.min(24,b.h/maxLines/1.12)*2)/2;size>=12;size-=.5) {
+      const lines=[];let line=head;
+      for(const item of items) {const next=line+(line===head?'  ':'  ·  ')+item;if(metrics(c,next,size).width>b.w){lines.push(line);line=item;}else line=next;}
+      lines.push(line);
+      const lh=size*1.12;
+      if(lines.length<=maxLines && lines.every(l=>metrics(c,l,size).width<=b.w) && lines.length*lh<=b.h) {
+        let yy=b.y+(b.h-lines.length*lh)/2+size*.86;
+        for(const l of lines) {ink(c,l,b.x+b.w/2,yy,size);yy+=lh;}
+        return;
+      }
+    }
+  }
 }
 function scissors(c,x,y,angle=0) {
   c.save();c.translate(x,y);c.rotate(angle);c.strokeStyle=BLACK;c.lineWidth=3;
@@ -123,7 +152,7 @@ function scissors(c,x,y,angle=0) {
 }
 export function drawOutdoor(c,s,x,y,w,h) {
   c.save();c.translate(x,y);c.scale(w/1000,h/700);box(c,0,0,1000,700,WHITE);
-  const t=s.template||'frame',banner=s.banner||'', hasSub=!!s.subtitle;
+  const t=s.template||'frame',banner=s.banner||'', hasSub=!!s.subtitle, K=s.barcodes?.length?CODES_H:0;
   const product=(top=185,height=146,width=868,left=(1000-width)/2)=>{
     const titleSize=fit(c,s.title,{x:left,y:top,w:width,h:height},140,BLACK,height>=120?3:2);
     if(hasSub)fit(c,s.subtitle,{x:120,y:top+height+1,w:760,h:45},Math.min(57,(titleSize||80)*.72),BLACK,2);
@@ -136,7 +165,7 @@ export function drawOutdoor(c,s,x,y,w,h) {
     rays(c,228,107,-1,.63);rays(c,772,107,1,.63);store();
   };
   const priceBurst=(mode='burst')=>{
-    const yy=hasSub?367:350,hh=hasSub?240:257;
+    const yy=hasSub?367:350,hh=(hasSub?240:257)-K;
     if(mode==='brush')brush(c,145,yy,710,hh);
     else if(mode==='block')box(c,142,yy,716,hh);
     else burst(c,141,yy-12,718,hh+24,t==='banner'?17:15);
@@ -153,33 +182,37 @@ export function drawOutdoor(c,s,x,y,w,h) {
     product(184,hasSub?129:158,826);
     // The circular stamp contains ONLY a supplied store name, never an invented deadline.
     if(s.store) {c.beginPath();c.arc(863,431,63,0,Math.PI*2);c.fillStyle=BLACK;c.fill();angled(c,s.store,{x:822,y:390,w:82,h:82},-.13,WHITE,25,4);}
-    price(c,s,{x:109,y:hasSub?370:353,w:s.store?672:782,h:237},BLACK);
-    footer(c,s,{capsule:false,x:118,w:764,y:612,h:39});
+    price(c,s,{x:109,y:hasSub?370:353,w:s.store?672:782,h:237-K},BLACK);
+    footer(c,s,{capsule:false,x:118,w:764,y:612-K,h:39});
+    codes(c,s,{x:118,y:615,w:764,h:37});
   } else if(t==='bold') {
     polygon(c,[[12,12],[970,12],[914,61],[943,68],[844,197],[13,260]]);
     c.save();c.translate(472,130);c.rotate(-.08);fit(c,banner,{x:-414,y:-85,w:828,h:170},206,WHITE,2);c.restore();
     product(258,hasSub?76:97,820);
-    price(c,s,{x:117,y:hasSub?388:368,w:766,h:236},BLACK);
+    price(c,s,{x:117,y:hasSub?388:368,w:766,h:236-K},BLACK);
     rays(c,90,456,-1,.75);rays(c,910,456,1,.75);
     polygon(c,[[12,607],[181,642],[149,688],[12,688]]);polygon(c,[[849,642],[988,607],[988,688],[819,688]]);
     angled(c,s.store,{x:24,y:644,w:117,h:37},0,WHITE,24,3);
-    footer(c,s,{capsule:false,x:193,w:598,y:634,h:43});
+    footer(c,s,{capsule:false,x:193,w:598,y:634-K,h:43});
+    codes(c,s,{x:193,y:642,w:598,h:42});
   } else if(t==='split') {
     polygon(c,[[12,12],[241,12],[12,232]]);chevrons(c,55,81);
     if(s.store)angled(c,s.store,{x:26,y:32,w:117,h:83},-.15,WHITE,26,3);
     brush(c,290,44,440,129);fit(c,banner,{x:316,y:55,w:388,h:104},131,WHITE,2);
     rays(c,773,109,1,.72);product(188,hasSub?135:154);
-    polygon(c,[[173,398],[898,373],[829,612],[102,625]]);
+    polygon(c,[[173,398],[898,373],[829,612-K],[102,625-K]]);
     // Level typography over a slanted black slab keeps the amount maximally readable.
-    price(c,s,{x:182,y:414,w:625,h:180});
+    price(c,s,{x:182,y:414,w:625,h:180-K});
     rays(c,90,467,-1,.66);rays(c,920,475,1,.63);
-    footer(c,s,{x:205,w:590,y:636,h:40});
+    footer(c,s,{x:205,w:590,y:636-K,h:40});
+    codes(c,s,{x:115,y:642,w:770,h:42});
   } else {
     standardHeader(t==='banner'?'ribbon':'brush');
     product(186,hasSub?126:150);
     priceBurst(t==='burst'?'brush':t==='elegant'?'block':'burst');
-    footer(c,s);
-    if(!s.note && !s.oldPrice && !s.end) {chevrons(c,53,623);c.save();c.translate(947,675);c.rotate(Math.PI);chevrons(c,0,0);c.restore();}
+    footer(c,s,{y:620-K});
+    codes(c,s,{x:115,y:644,w:770,h:40});
+    if(!s.note && !s.oldPrice && !s.end && !K) {chevrons(c,53,623);c.save();c.translate(947,675);c.rotate(Math.PI);chevrons(c,0,0);c.restore();}
   }
   c.restore();
 }
