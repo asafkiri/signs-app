@@ -5,7 +5,8 @@ export async function checkPrintSelection({page,name,out,ok,eq,load}) {
   const state=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('signs-app:v1:workspace')));
   const cards=page.locator('#cards>.card'),toggle=i=>cards.nth(i).locator('[data-print]');
   const pngs=()=>page.locator('#signPages canvas').evaluateAll(cs=>cs.map(c=>c.toDataURL('image/png')));
-  const seed=async(type,layout,titles,extra={})=>{await page.evaluate(async({type,layout,titles,extra})=>{
+  // The open page re-saves its workspace ~100ms after a re-render (template previews); let that settle before seeding.
+  const seed=async(type,layout,titles,extra={})=>{await page.waitForTimeout(400);await page.evaluate(async({type,layout,titles,extra})=>{
     const {newDraft}=await import('./model.js');
     const entries=titles.map((title,i)=>({savedId:null,draft:{...newDraft(),type,store:'מיני מרקט שלום',title,kind:'unit',price:String(5+i),...(extra[i]||{})}}));
     localStorage.removeItem('signs-app:v1:clear-undo');Object.keys(localStorage).filter(k=>k.startsWith('signs-app:v1:item:')).forEach(k=>localStorage.removeItem(k));
