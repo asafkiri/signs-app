@@ -33,14 +33,16 @@ export async function checkPrintSelection({page,name,out,ok,eq,load}) {
   await page.evaluate(()=>{window.__shared=[];});await page.locator('#share-images').click();ok((await page.locator('#form-error').textContent()).includes('לא סומן אף שלט'));eq(await page.evaluate(()=>window.__shared.length),0);
   await page.locator('#print-all').click();eq(await page.locator('#signPages canvas').count(),3);eq((await pngs())[2],reloaded[0]);if(name==='chromium')eq(await pngs(),all);ok(await page.locator('#print-summary').isHidden());eq(await page.evaluate(()=>document.activeElement.id),'preview-print');eq((await state()).entries.map(e=>e.skip),[false,false,false]);
 
-  // Indoor, 4 per page: pages are re-packed from the checked signs only, and an unchecked incomplete sign never blocks export or saving.
+  // Indoor, 4 per page: pages are re-packed from the checked signs only, and an unchecked incomplete sign never blocks export.
+  // Saving to the list is unchanged: it validates and saves every edited sign, checked or not.
   await seed('indoor','4',['א','ב','ג','ד','ה'],{0:{barcodes:['7290110115203']},1:{price:''}});
   eq(await page.locator('#signPages canvas').count(),2);
   await page.locator('#share-images').click();ok(await page.locator('#form-error').isVisible(),'incomplete checked sign blocks export');
   await toggle(1).uncheck();await page.waitForTimeout(250);eq(await page.locator('#signPages canvas').count(),1);
   await page.evaluate(()=>{window.__shared=[];});await page.locator('#share-images').click();await page.waitForFunction(()=>window.__shared.length===1);ok(await page.locator('#form-error').isHidden());
-  await page.locator('#save-sign').click();eq(await page.locator('#library-count').textContent(),'4');
-  eq((await state()).entries.map(e=>e.savedId===null),[false,true,false,false,false]);
+  await page.locator('#save-sign').click();ok((await page.locator('#form-error').textContent()).startsWith('שלט 2:'));eq(await page.locator('#library-count').textContent(),'0');
+  await cards.nth(1).locator('[data-field=price]').fill('9');await page.locator('#save-sign').click();eq(await page.locator('#library-count').textContent(),'5');
+  eq((await state()).entries.map(e=>e.savedId===null),[false,false,false,false,false]);eq(await toggle(1).isChecked(),false);
 
   // Clearing and undoing keeps the selection.
   await page.locator('#clear-all-signs').click();eq(await toggle(0).isChecked(),true);ok(await page.locator('#print-summary').isHidden());

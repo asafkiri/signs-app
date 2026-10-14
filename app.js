@@ -118,8 +118,8 @@ function refresh() {
     imageReady = Promise.all(pages.map((cv,i) => new Promise((resolve,reject) => cv.toBlob(blob => blob ? resolve(new File([blob],`sign-${i+1}.png`,{type:'image/png'})) : reject(new Error('יצירת התמונה נכשלה')),'image/png')))).then(files => { if (revision === imageRevision) imageFiles = files; }).catch(err => { if (revision === imageRevision) error(err.message); });
   } catch (err) { error(err.message); }
 }
-function validated() {
-  try { if (!printable().length) throw new Error('לא סומן אף שלט להדפסה. סמן ״להדפסה״ בשלט אחד לפחות.'); entries.forEach((e,i) => { if (e.skip) return; try { buildSign(e.draft); } catch(err) { throw new Error(`שלט ${i+1}: ${err.message}`); } }); return true; }
+function validated(all = false) {
+  try { if (!all && !printable().length) throw new Error('לא סומן אף שלט להדפסה. סמן ״להדפסה״ בשלט אחד לפחות.'); entries.forEach((e,i) => { if (e.skip && !all) return; try { buildSign(e.draft); } catch(err) { throw new Error(`שלט ${i+1}: ${err.message}`); } }); return true; }
   catch(err) { error(err.message); $('form-error').scrollIntoView({block:'center',behavior:'smooth'}); return false; }
 }
 function currentEntry(target) { return entries.find(e => e.uid === target.closest('[data-uid]')?.dataset.uid); }
@@ -164,7 +164,7 @@ function showEditor() { $('editor-view').hidden=false;$('library-view').hidden=t
 function showLibrary() { loadSaved();$('editor-view').hidden=true;$('library-view').hidden=false;$('action-bar').hidden=true;window.scrollTo(0,0); }
 $('open-library').addEventListener('click',showLibrary);$('back').addEventListener('click',showLibrary);$('library-back').addEventListener('click',showEditor);
 $('select-all').addEventListener('change',ev=>{selected=new Set(ev.target.checked?saved.map(s=>s.id):[]);renderSaved();});$('load-selected').addEventListener('click',()=>loadEntries(saved.filter(s=>selected.has(s.id))));
-$('save-sign').addEventListener('click',()=>{if(!validated())return;const chosen=printable(),fresh=chosen.filter(e=>!e.savedId||!saved.some(s=>s.id===e.savedId)).length;if(saved.length+fresh>150)return toast('הרשימה מלאה — יש לגבות ולמחוק שלטים ישנים');let count=0;for(const e of chosen){const id=e.savedId||crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:cleanDraft(e.draft)}))break;e.savedId=id;count++;}persist();loadSaved();toast(`נשמרו ${count} שלטים במכשיר`);});
+$('save-sign').addEventListener('click',()=>{if(!validated(true))return;const fresh=entries.filter(e=>!e.savedId||!saved.some(s=>s.id===e.savedId)).length;if(saved.length+fresh>150)return toast('הרשימה מלאה — יש לגבות ולמחוק שלטים ישנים');let count=0;for(const e of entries){const id=e.savedId||crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:cleanDraft(e.draft)}))break;e.savedId=id;count++;}persist();loadSaved();toast(`נשמרו ${count} שלטים במכשיר`);});
 window.addEventListener('storage',ev=>{if(ev.key?.startsWith(ITEM)||ev.key===null){loadSaved();toast('רשימת השלטים עודכנה. השלטים שבעריכה לא הוחלפו');}});
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);}
 async function readyImages(){if(refreshTimer)refresh();await imageReady;if(!imageFiles.length)throw new Error('התמונות עדיין אינן מוכנות');return imageFiles;}
