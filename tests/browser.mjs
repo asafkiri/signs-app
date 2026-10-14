@@ -10,6 +10,7 @@ import { checkPromoBadge } from './promo-badge-browser.mjs';
 import { checkClearAll } from './clear-all-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 import { checkPrintSelection } from './print-selection-browser.mjs';
+import { checkPrintLayout } from './print-layout-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
@@ -63,6 +64,7 @@ try{
   await checkPromoBadge({page,name,out,ok,eq,load});
   await checkClearAll({page,name,out,ok,eq,load});
   await checkPrintSelection({page,name,out,ok,eq,load});
+  await checkPrintLayout({page,name,out,ok,eq,load});
   eq(errors,[]);await context.close();
   // Existing v1 storage is read, not overwritten or silently repriced.
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
