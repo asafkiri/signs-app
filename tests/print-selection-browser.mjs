@@ -31,10 +31,10 @@ export async function checkPrintSelection({page,name,out,ok,eq,load}) {
   const reloaded=await pngs(); // WebKit canvas bytes can differ by a few bytes across page loads; compare within this load there.
   await toggle(2).uncheck();await page.waitForTimeout(250);eq(await page.locator('#signPages canvas').count(),0);eq(await page.locator('#print-count').textContent(),'לא סומן אף שלט להדפסה');
   await page.evaluate(()=>{window.__shared=[];});await page.locator('#share-images').click();ok((await page.locator('#form-error').textContent()).includes('לא סומן אף שלט'));eq(await page.evaluate(()=>window.__shared.length),0);
-  await page.locator('#print-all').click();eq(await page.locator('#signPages canvas').count(),3);eq((await pngs())[2],reloaded[0]);if(name==='chromium')eq(await pngs(),all);ok(await page.locator('#print-summary').isHidden());eq((await state()).entries.map(e=>e.skip),[false,false,false]);
+  await page.locator('#print-all').click();eq(await page.locator('#signPages canvas').count(),3);eq((await pngs())[2],reloaded[0]);if(name==='chromium')eq(await pngs(),all);ok(await page.locator('#print-summary').isHidden());eq(await page.evaluate(()=>document.activeElement.id),'preview-print');eq((await state()).entries.map(e=>e.skip),[false,false,false]);
 
   // Indoor, 4 per page: pages are re-packed from the checked signs only, and an unchecked incomplete sign never blocks export or saving.
-  await seed('indoor','4',['א','ב','ג','ד','ה'],{1:{price:''}});
+  await seed('indoor','4',['א','ב','ג','ד','ה'],{0:{barcodes:['7290110115203']},1:{price:''}});
   eq(await page.locator('#signPages canvas').count(),2);
   await page.locator('#share-images').click();ok(await page.locator('#form-error').isVisible(),'incomplete checked sign blocks export');
   await toggle(1).uncheck();await page.waitForTimeout(250);eq(await page.locator('#signPages canvas').count(),1);
@@ -46,7 +46,9 @@ export async function checkPrintSelection({page,name,out,ok,eq,load}) {
   await page.locator('#clear-all-signs').click();eq(await toggle(0).isChecked(),true);ok(await page.locator('#print-summary').isHidden());
   await page.locator('#undo-clear').click();eq(await toggle(1).isChecked(),false);eq(await cards.count(),5);
 
-  for(const width of [320,390]){await page.setViewportSize({width,height:844});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
-    const top=await cards.nth(0).locator('.card-top').boundingBox();ok(top.height<60,'card header stays compact');}
+  // Narrow phones: a store sign with barcodes keeps its label and copy/delete on one row; the toggles get their own row.
+  for(const width of [320,360,375,390,430]){await page.setViewportSize({width,height:844});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    const top=cards.nth(0).locator('.card-top'),box=await top.boundingBox(),copy=await top.locator('[data-action=copy]').boundingBox(),del=await top.locator('[data-action=remove]').boundingBox();
+    ok(Math.abs(copy.y-del.y)<2,'delete stays beside copy');ok(box.height<(width>400?30:50),'card header stays compact');}
   await page.setViewportSize({width:390,height:844});
 }
