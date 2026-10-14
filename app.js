@@ -11,14 +11,15 @@ function read(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'
 function write(key, value) { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch { storageError(); return false; } }
 function toast(message) { clearTimeout(timer); $('toast').textContent = message; $('toast').hidden = false; timer = setTimeout(() => $('toast').hidden = true, 4000); }
 function error(message = '') { $('form-error').hidden = !message; $('form-error').textContent = message; }
-const entry = (draft = newDraft(), savedId = null) => ({ uid: crypto.randomUUID(), savedId, draft: cleanDraft(draft) });
+const entry = (draft = newDraft(), savedId = null, skip = false) => ({ uid: crypto.randomUUID(), savedId, skip, draft: cleanDraft(draft) });
+const printable = () => entries.filter(e => !e.skip);
 const work = read(WORK), old = read(PREFIX + 'draft');
 if (work && Array.isArray(work.entries) && work.entries.length && work.entries.length <= 30) {
-  entries = work.entries.map(e => entry(e?.draft, typeof e?.savedId === 'string' ? e.savedId : null));
+  entries = work.entries.map(e => entry(e?.draft, typeof e?.savedId === 'string' ? e.savedId : null, e?.skip === true));
   if (['4','3','2small','2','1'].includes(work.layout)) layout = work.layout;
   if (['indoor','outdoor'].includes(work.type)) type = work.type;
 } else { entries = [entry(old || newDraft())]; type = entries[0].draft.type; }
-function persist() { write(WORK, { version: 2, layout, type, entries: entries.map(({savedId,draft}) => ({savedId,draft})) }); }
+function persist() { write(WORK, { version: 2, layout, type, entries: entries.map(({savedId,skip,draft}) => ({savedId,skip,draft})) }); }
 let clearUndo = read(CLEAR_UNDO);
 if (!clearUndo || !Array.isArray(clearUndo.entries) || !clearUndo.entries.length || clearUndo.entries.length > 30 || !['indoor','outdoor'].includes(clearUndo.type) || !['4','3','2small','2','1'].includes(clearUndo.layout)) clearUndo = null;
 function updateClearUndo() { $('clear-undo').hidden = !clearUndo; $('clear-all-signs').disabled = !!clearUndo; }
@@ -31,7 +32,7 @@ function discardClearUndo() {
 updateClearUndo();
 $('clear-all-signs').addEventListener('click',() => {
   if (clearUndo) return;
-  clearUndo = { layout, type, entries: entries.map(({savedId,draft}) => ({savedId,draft:cleanDraft(draft)})) };
+  clearUndo = { layout, type, entries: entries.map(({savedId,skip,draft}) => ({savedId,skip,draft:cleanDraft(draft)})) };
   write(CLEAR_UNDO,clearUndo);
   const {store,vat} = entries[0].draft;
   closeCamera();
@@ -42,7 +43,7 @@ $('clear-all-signs').addEventListener('click',() => {
 $('undo-clear').addEventListener('click',() => {
   if (!clearUndo) return;
   const previous = clearUndo;
-  entries = previous.entries.map(e => entry(e?.draft,saved.some(s => s.id === e?.savedId) ? e.savedId : null));
+  entries = previous.entries.map(e => entry(e?.draft,saved.some(s => s.id === e?.savedId) ? e.savedId : null,e?.skip === true));
   layout = previous.layout; type = previous.type;
   discardClearUndo(); renderCards();
   $('clear-all-signs').focus({preventScroll:true});
@@ -56,7 +57,7 @@ function select(e, key, label, items) { return `<label for="${e.uid}-${key}">${l
 function card(e, i) {
   const d = e.draft, numeric = ['unit','bundle'].includes(d.kind);
   const priceFields = d.kind === 'free' ? `<div>${field(e,'free','טקסט המבצע',{placeholder:'למשל: השני בחצי מחיר',maxlength:60})}</div>` : d.kind === 'pct' ? `<div>${field(e,'pct','אחוז הנחה (%)',{placeholder:'10',inputmode:'decimal'})}</div>` : `${d.kind === 'bundle' ? `<div class="quantity-field">${field(e,'quantity','כמות',{inputmode:'numeric',placeholder:'4'})}</div>` : ''}<div>${field(e,'price',d.kind === 'unit' ? 'מחיר ליח׳ (₪)' : 'מחיר כולל (₪)',{inputmode:'decimal',placeholder:'0.00'})}</div><div class="old-field">${field(e,'oldPrice','במקום ליח׳ ₪ (רשות)',{inputmode:'decimal',placeholder:'14'})}</div>`;
-  return `<article class="card" data-uid="${e.uid}"><div class="card-top"><span>שלט ${i + 1}${d.barcodes.length ? ` · ${d.barcodes.length} ברקודים` : ''}</span>${d.type === 'indoor' ? `<label class="promo-toggle"><input type="checkbox" data-field="promoBadge" ${d.promoBadge ? 'checked' : ''}> חותמת מבצע</label>` : ''}<div><button data-action="copy">שכפול</button> <button data-action="remove" class="delete-card" aria-label="מחיקת שלט ${i+1}">×</button></div></div>
+  return `<article class="card${e.skip ? ' skipped' : ''}" data-uid="${e.uid}"><div class="card-top${d.barcodes.length ? ' with-codes' : ''}"><span>שלט ${i + 1}${d.barcodes.length ? ` · ${d.barcodes.length} ברקודים` : ''}</span><div class="card-toggles"><label class="print-toggle"><input type="checkbox" data-print ${e.skip ? '' : 'checked'}> להדפסה</label>${d.type === 'indoor' ? `<label class="promo-toggle"><input type="checkbox" data-field="promoBadge" ${d.promoBadge ? 'checked' : ''}> חותמת מבצע</label>` : ''}</div><div><button data-action="copy">שכפול</button> <button data-action="remove" class="delete-card" aria-label="מחיקת שלט ${i+1}">×</button></div></div>
   <div class="title-field">${field(e,'title','כותרת השלט',{placeholder:'למשל: לחמניות עשרייה ברמן',maxlength:80})}</div>
   <div class="kind-row" role="group" aria-label="סוג מבצע">${choices(e,'kind',[['unit','מחיר ליח׳'],['bundle','כמות במחיר'],['pct','% הנחה']],d.kind)}</div>
   <div class="offer-row">${priceFields}</div>
@@ -81,7 +82,7 @@ function renderCards() {
   document.querySelectorAll('[data-type]').forEach(b => { const on = b.dataset.type === type; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
   $('layouts').hidden = entries.every(e => e.draft.type === 'outdoor'); $('outdoor-note').hidden = !$('layouts').hidden;
   document.querySelectorAll('[data-layout]').forEach(b => { const on = b.dataset.layout === layout; b.classList.toggle('active',on); b.setAttribute('aria-pressed',String(on)); });
-  refresh();
+  updatePrintSummary(); refresh();
 }
 function calculate(e, element) {
   if (e.draft.entry !== 'calc') return;
@@ -98,6 +99,11 @@ function calculate(e, element) {
     }
   } catch (err) { box.textContent = err.message; }
 }
+function updatePrintSummary() {
+  const count = printable().length;
+  $('print-summary').hidden = count === entries.length;
+  $('print-count').textContent = count ? `בהדפסה ${count} מתוך ${entries.length} שלטים` : 'לא סומן אף שלט להדפסה';
+}
 function schedule() { clearTimeout(refreshTimer); persist(); refreshTimer = setTimeout(refresh,100); }
 function refresh() {
   clearTimeout(refreshTimer); refreshTimer = null; persist(); error(); $('promo-warning').hidden = true;
@@ -105,18 +111,19 @@ function refresh() {
   const revision = ++imageRevision; imageFiles = [];
   pages.forEach(c => { c.width = 0; c.height = 0; }); pages = []; $('signPages').replaceChildren();
   try {
-    const plans = pagePlan(entries.map(e => previewSign(e.draft)),layout);
+    if (!printable().length) throw new Error('לא סומן אף שלט להדפסה. סמן ״להדפסה״ בשלט אחד לפחות.');
+    const plans = pagePlan(printable().map(e => previewSign(e.draft)),layout);
     plans.forEach((plan,i) => { const cv = renderPage(plan); pages.push(cv); if (plans.length > 1) { const l = document.createElement('div'); l.className = 'page-label'; l.textContent = `עמוד ${i+1} מתוך ${plans.length}`; $('signPages').append(l); } $('signPages').append(cv); });
     if (pages.some(cv => cv.promoBadges?.some(b => b.mode === 'omitted'))) { $('promo-warning').textContent = 'באחד השלטים אין מקום בטוח לחותמת מבצע. החותמת לא מוצגת בו כדי לשמור על כל הטקסט.'; $('promo-warning').hidden = false; }
     imageReady = Promise.all(pages.map((cv,i) => new Promise((resolve,reject) => cv.toBlob(blob => blob ? resolve(new File([blob],`sign-${i+1}.png`,{type:'image/png'})) : reject(new Error('יצירת התמונה נכשלה')),'image/png')))).then(files => { if (revision === imageRevision) imageFiles = files; }).catch(err => { if (revision === imageRevision) error(err.message); });
   } catch (err) { error(err.message); }
 }
-function validated() {
-  try { entries.forEach((e,i) => { try { buildSign(e.draft); } catch(err) { throw new Error(`שלט ${i+1}: ${err.message}`); } }); return true; }
+function validated(all = false) {
+  try { if (!all && !printable().length) throw new Error('לא סומן אף שלט להדפסה. סמן ״להדפסה״ בשלט אחד לפחות.'); entries.forEach((e,i) => { if (e.skip && !all) return; try { buildSign(e.draft); } catch(err) { throw new Error(`שלט ${i+1}: ${err.message}`); } }); return true; }
   catch(err) { error(err.message); $('form-error').scrollIntoView({block:'center',behavior:'smooth'}); return false; }
 }
 function currentEntry(target) { return entries.find(e => e.uid === target.closest('[data-uid]')?.dataset.uid); }
-$('cards').addEventListener('input',event => { const e = currentEntry(event.target), key = event.target.dataset.field; if (!e || !Object.hasOwn(e.draft,key) || key === 'barcodes') return; discardClearUndo(); e.draft[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value; schedule(); });
+$('cards').addEventListener('input',event => { if (event.target.matches('[data-print]')) { const e = currentEntry(event.target); e.skip = !event.target.checked; event.target.closest('.card').classList.toggle('skipped',e.skip); updatePrintSummary(); return schedule(); } const e = currentEntry(event.target), key = event.target.dataset.field; if (!e || !Object.hasOwn(e.draft,key) || key === 'barcodes') return; discardClearUndo(); e.draft[key] = event.target.type === 'checkbox' ? event.target.checked : event.target.value; schedule(); });
 $('cards').addEventListener('change',event => { if (['profitMode', 'promoBadge'].includes(event.target.dataset.field)) renderCards(); });
 $('cards').addEventListener('toggle',event => { if (event.target.classList?.contains('template-details') && event.target.open) schedule(); },true);
 $('cards').addEventListener('keydown',event => { if (event.key === 'Enter' && event.target.matches('[data-code-input]')) { event.preventDefault(); addCode(currentEntry(event.target),event.target.value); } });
@@ -136,6 +143,7 @@ $('cards').addEventListener('click',event => {
 $('new-sign').addEventListener('click',() => { if (entries.length >= 30) return toast('אפשר עד 30 שלטים בכל עריכה'); discardClearUndo(); const last = entries.at(-1).draft; const e = entry({...newDraft(),type,store:last.store,vat:last.vat}); entries.push(e); renderCards(); $('cards').querySelector(`[data-uid="${e.uid}"] [data-field="title"]`).focus(); });
 document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click',() => { discardClearUndo(); type = b.dataset.type; entries.forEach(e => e.draft.type = type); showEditor(); renderCards(); }));
 document.querySelectorAll('[data-layout]').forEach(b => b.addEventListener('click',() => { layout = b.dataset.layout; renderCards(); }));
+$('print-all').addEventListener('click',() => { entries.forEach(e => e.skip = false); renderCards(); $('preview-print').focus({preventScroll:true}); });
 function addCode(e, value) { const code = String(value || '').trim(); if (!e || !/^[\x20-\x7e]{1,32}$/.test(code)) return toast('ברקוד לא תקין — עד 32 תווים ללא עברית'); if (e.draft.barcodes.includes(code)) return toast('הברקוד כבר מופיע'); if (e.draft.barcodes.length >= 24) return toast('אפשר עד 24 ברקודים לשלט'); discardClearUndo(); e.draft.barcodes.push(code); renderCards(); }
 function loadSaved() {
   const items = [];
@@ -156,7 +164,7 @@ function showEditor() { $('editor-view').hidden=false;$('library-view').hidden=t
 function showLibrary() { loadSaved();$('editor-view').hidden=true;$('library-view').hidden=false;$('action-bar').hidden=true;window.scrollTo(0,0); }
 $('open-library').addEventListener('click',showLibrary);$('back').addEventListener('click',showLibrary);$('library-back').addEventListener('click',showEditor);
 $('select-all').addEventListener('change',ev=>{selected=new Set(ev.target.checked?saved.map(s=>s.id):[]);renderSaved();});$('load-selected').addEventListener('click',()=>loadEntries(saved.filter(s=>selected.has(s.id))));
-$('save-sign').addEventListener('click',()=>{if(!validated())return;const fresh=entries.filter(e=>!e.savedId||!saved.some(s=>s.id===e.savedId)).length;if(saved.length+fresh>150)return toast('הרשימה מלאה — יש לגבות ולמחוק שלטים ישנים');let count=0;for(const e of entries){const id=e.savedId||crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:cleanDraft(e.draft)}))break;e.savedId=id;count++;}persist();loadSaved();toast(`נשמרו ${count} שלטים במכשיר`);});
+$('save-sign').addEventListener('click',()=>{if(!validated(true))return;const fresh=entries.filter(e=>!e.savedId||!saved.some(s=>s.id===e.savedId)).length;if(saved.length+fresh>150)return toast('הרשימה מלאה — יש לגבות ולמחוק שלטים ישנים');let count=0;for(const e of entries){const id=e.savedId||crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:cleanDraft(e.draft)}))break;e.savedId=id;count++;}persist();loadSaved();toast(`נשמרו ${count} שלטים במכשיר`);});
 window.addEventListener('storage',ev=>{if(ev.key?.startsWith(ITEM)||ev.key===null){loadSaved();toast('רשימת השלטים עודכנה. השלטים שבעריכה לא הוחלפו');}});
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);}
 async function readyImages(){if(refreshTimer)refresh();await imageReady;if(!imageFiles.length)throw new Error('התמונות עדיין אינן מוכנות');return imageFiles;}
