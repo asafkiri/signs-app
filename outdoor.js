@@ -124,14 +124,15 @@ function footer(c,s,{capsule=true,x=170,w=660,y=620,h=58}={}) {
   });
 }
 // Scanned/typed barcodes, as on store signs. Whole codes per line; if they cannot stay
-// legible in the band, the last ones are summarised as "ועוד N".
+// legible in the band, the last ones are summarised as "ועוד N". Each code is an LTR
+// isolate so letters/symbols (Code 128: "ABC-123", "123-") print exactly as entered.
 const CODES_H=38;
 function codes(c,s,b,maxLines=2) {
   const list=s.barcodes||[];if(!list.length)return;
   const head='המבצע חל על הברקודים:';
   for(let shown=list.length;shown>=1;shown--) {
-    const items=[...list.slice(0,shown),...(shown<list.length?[`ועוד ${list.length-shown}`]:[])];
-    for(let size=Math.min(24,b.h/maxLines/1.12);size>=12;size-=.5) {
+    const items=[...list.slice(0,shown).map(code=>`\u2066${code}\u2069`),...(shown<list.length?[`ועוד ${list.length-shown}`]:[])];
+    for(let size=Math.floor(Math.min(24,b.h/maxLines/1.12)*2)/2;size>=12;size-=.5) {
       const lines=[];let line=head;
       for(const item of items) {const next=line+(line===head?'  ':'  ·  ')+item;if(metrics(c,next,size).width>b.w){lines.push(line);line=item;}else line=next;}
       lines.push(line);
