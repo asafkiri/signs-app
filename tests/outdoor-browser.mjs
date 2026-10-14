@@ -92,7 +92,8 @@ export async function checkOutdoor({page,name,out,ok,eq,load}) {
   await card().locator('.barcode-details').evaluate(e=>{e.open=true;});
   const codeList=['ABC-12-',...Array.from({length:8},(_,i)=>`729011011520${i}`)];
   for(const code of codeList){await card().locator('[data-code-input]').fill(code);await card().locator('[data-action=add-code]').click();}
-  for(const template of templates){await resetLog();await page.locator(`[data-template=${template}]`).click();await settle();const calls=await drawn(),text=calls.map(d=>d.text).join(' ');
+  // The template click re-renders again ~100ms later (debounced previews); wait it out before reading/capturing.
+  for(const template of templates){await resetLog();await page.locator(`[data-template=${template}]`).click();await page.waitForTimeout(400);await settle();const calls=await drawn(),text=calls.map(d=>d.text).join(' ');
     ok(text.includes('המבצע חל על הברקודים:'),`${template}: barcode heading drawn`);ok(codeList.slice(0,3).every(c=>text.includes(`\u2066${c}\u2069`)),`${template}: barcodes drawn as LTR isolates (letters/symbols print as entered)`);ok(text.includes('12 ליח׳')&&text.includes('בתוקף עד 31.10.2026'),`${template}: footer kept with barcodes`);
     for(const call of calls)for(const point of call.points)ok(point.x>=38&&point.x<=1716&&point.y>=38&&point.y<=1202,`${template}: barcodes inside safe area`);
     const boxes=calls.map(d=>({t:d.text,x0:Math.min(...d.points.map(p=>p.x)),x1:Math.max(...d.points.map(p=>p.x)),y0:Math.min(...d.points.map(p=>p.y)),y1:Math.max(...d.points.map(p=>p.y))}));
