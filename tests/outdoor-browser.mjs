@@ -62,7 +62,7 @@ export async function checkOutdoor({page,name,out,ok,eq,load}) {
     const pdf=fs.readFileSync(pdfPath);ok(pdf.includes(Buffer.from('/MediaBox [0 0 841.89 595.28]')),`${template}: PDF must be A4 landscape`);
     ok(pdf.includes(Buffer.from('/Width 1754 /Height 1240')),`${template}: PDF retains print resolution`);
     ok(pdf.includes(Buffer.from(jpeg.split(',')[1],'base64')),`${template}: PDF embeds exact preview JPEG without rerendering`);
-    await page.emulateMedia({media:'print'});const sheet=await page.locator('.print-sheet').boundingBox();ok(sheet.width>sheet.height,'native print page remains landscape');await page.emulateMedia({media:'screen'});
+    await page.emulateMedia({media:'print'});const sheet=await page.locator('.print-sheet').boundingBox();ok(sheet.height>sheet.width,'native print sheet is portrait A4 with the landscape sign turned');ok(await page.locator('.print-sheet .print-turned').isVisible(),'turned copy is what prints');await page.emulateMedia({media:'screen'});
     await page.evaluate(()=>{window.__printed=false;window.print=()=>{window.__printed=true;};});await page.locator('#native-print').click();ok(await page.evaluate(()=>window.__printed),'native print action works');await page.locator('#close-print').click();
   }
   eq(samples.size,7);

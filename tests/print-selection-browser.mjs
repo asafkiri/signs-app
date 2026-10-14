@@ -25,14 +25,14 @@ export async function checkPrintSelection({page,name,out,ok,eq,load}) {
   if(name==='chromium')await page.screenshot({path:path.join(out,'print-selection.png'),fullPage:true});
   await page.evaluate(()=>{window.__shared=[];});await page.locator('#share-images').click();await page.waitForFunction(()=>window.__shared.length===1);
   eq((await page.evaluate(()=>window.__shared))[0].url,all[2]);
-  await page.locator('#preview-print').click();eq(await page.locator('#page-count').textContent(),'1 דפי A4');eq(await page.locator('#print-pages canvas').count(),1);await page.locator('#close-print').click();
+  await page.locator('#preview-print').click();eq(await page.locator('#page-count').textContent(),'1 דפי A4');eq(await page.locator('#print-pages .print-sheet').count(),1);await page.locator('#close-print').click();
 
   // The selection survives a reload; none selected blocks export with a clear message.
   await load();eq(await toggle(0).isChecked(),false);eq(await toggle(1).isChecked(),false);eq(await toggle(2).isChecked(),true);eq(await page.locator('#signPages canvas').count(),1);
   const reloaded=await pngs(); // WebKit canvas bytes can differ by a few bytes across page loads; compare within this load there.
   await toggle(2).uncheck();await page.waitForTimeout(250);eq(await page.locator('#signPages canvas').count(),0);eq(await page.locator('#print-count').textContent(),'לא סומן אף שלט להדפסה');
   await page.evaluate(()=>{window.__shared=[];});await page.locator('#share-images').click();ok((await page.locator('#form-error').textContent()).includes('לא סומן אף שלט'));eq(await page.evaluate(()=>window.__shared.length),0);
-  await page.locator('#print-all').click();eq(await page.locator('#signPages canvas').count(),3);eq((await pngs())[2],reloaded[0]);if(name==='chromium')eq(await pngs(),all);ok(await page.locator('#print-summary').isHidden());eq(await page.evaluate(()=>document.activeElement.id),'preview-print');eq((await state()).entries.map(e=>e.skip),[false,false,false]);
+  await page.locator('#print-all').click();await page.waitForTimeout(400);eq(await page.locator('#signPages canvas').count(),3);eq((await pngs())[2],reloaded[0]);if(name==='chromium')eq(await pngs(),all);ok(await page.locator('#print-summary').isHidden());eq(await page.evaluate(()=>document.activeElement.id),'preview-print');eq((await state()).entries.map(e=>e.skip),[false,false,false]);
 
   // Indoor, 4 per page: pages are re-packed from the checked signs only, and an unchecked incomplete sign never blocks export.
   // Saving to the list is unchanged: it validates and saves every edited sign, checked or not.
