@@ -26,30 +26,26 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
   let line = str; while (line.length > 1 && c.measureText(line + '…').width > maxW) line = line.slice(0, -1);
   return { size: 10, lines: [line === str ? line : line + '…'] };
 }
-// Black only: tags are printed black-and-white.
+// Black only: tags are printed black-and-white. A frame holds the name (underlined) above
+// the price on the left and the pack details on the right, so they read as one tag.
+const PX_MM = W / 210;
 function drawTag(c, t, x, y, w, h) {
-  const ink = '#000';
-  const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
-  const info = [t.size, t.unitPrice].filter(Boolean).join(' · ');
-  let nameBox, priceBox, infoBox, codeBox, rule;
-  if (w / h >= 1.6) {
-    // Long shelf strips (RTL): name and details on the right, the price on the left, a short divider between.
-    const priceW = iw * .46, tx = ix + priceW + pad, textW = iw - priceW - pad;
-    const codeH = t.barcode ? Math.max(ih * .17, 30) : 0, infoH = info ? ih * .22 : 0, nameH = ih - codeH - infoH;
-    nameBox = { x: tx, y: iy, w: textW, h: nameH }; infoBox = { x: tx, y: iy + nameH, w: textW, h: infoH }; codeBox = { x: tx, y: iy + nameH + infoH, w: textW, h: codeH };
-    priceBox = { x: ix, y: iy, w: priceW, h: ih }; rule = { x: ix + priceW + pad / 2 - 1, y: iy + ih * .15, w: Math.max(2, ih * .012), h: ih * .7 };
-  } else {
-    const footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04;
-    nameBox = { x: ix, y: iy, w: iw, h: nameH }; priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - footer - code - ih * .04 };
-    infoBox = { x: ix, y: iy + ih - code - footer, w: iw, h: footer }; codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
-    rule = { x: x + w * .3, y: iy + nameH + ih * .01, w: w * .4, h: Math.max(2, ih * .012) };
-  }
-  c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
-  const name = fitLines(c, t.name, nameBox.w, nameBox.h, Math.min(nameBox.h * .48, ih * .4), 2);
+  const ink = '#000', inset = PX_MM, frame = Math.round(PX_MM * .8);
+  const fx = x + inset, fy = y + inset, fw = w - inset * 2, fh = h - inset * 2;
+  const pad = Math.round(Math.min(fw, fh) * .07), ix = fx + frame + pad, iw = fw - (frame + pad) * 2, iy = fy + frame + pad * .5, ih = fh - frame * 2 - pad;
+  const info = [t.size, t.unitPrice].filter(Boolean).join(' · '), details = info || t.barcode;
+  c.save(); c.fillStyle = ink; c.strokeStyle = ink;
+  c.lineWidth = frame; c.strokeRect(fx + frame / 2, fy + frame / 2, fw - frame, fh - frame);
+  // Name, then a thick rule under it across the frame.
+  const nameH = ih * .3, rule = Math.max(4, Math.round(PX_MM * .7));
+  c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  const name = fitLines(c, t.name, iw, nameH, nameH * .62, 2);
   c.font = `800 ${name.size}px ${FONT}`;
-  const lineH = name.size * 1.12, top = nameBox.y + (nameBox.h - lineH * name.lines.length) / 2;
-  name.lines.forEach((l, i) => c.fillText(l, nameBox.x + nameBox.w / 2, top + lineH * (i + .5)));
-  c.fillRect(rule.x, rule.y, rule.w, rule.h);
+  const lineH = name.size * 1.12, top = iy + (nameH - lineH * name.lines.length) / 2;
+  name.lines.forEach((l, i) => c.fillText(l, ix + iw / 2, top + lineH * (i + .5)));
+  c.fillRect(ix, iy + nameH + ih * .02, iw, rule);
+  const bodyY = iy + nameH + ih * .02 + rule + ih * .04, bodyH = iy + ih - bodyY;
+  const priceBox = { x: ix, y: bodyY, w: details ? iw * .56 : iw, h: bodyH };
   // Hebrew order, laid out left→right: [₪ with the unit label above it] [shekels][agorot]
   const { shekels, agorot } = priceParts(t.price), parts = [];
   const measure = s => {
@@ -65,9 +61,10 @@ function drawTag(c, t, x, y, w, h) {
       return sum + (p.lead || 0) + p.w + p.gap;
     }, 0);
   };
-  let s = priceBox.h / .78; const total = measure(s); if (total > priceBox.w) { s *= priceBox.w / total; measure(s); }
+  let s = priceBox.h / .8; const total = measure(s); if (total > priceBox.w) { s *= priceBox.w / total; measure(s); }
   const width = parts.reduce((sum, p) => sum + (p.lead || 0) + p.w + p.gap, 0), cap = s * .72, base = priceBox.y + (priceBox.h + cap) / 2;
-  let cx = priceBox.x + (priceBox.w - width) / 2; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  // With details the price hugs the left edge; alone it is centred.
+  let cx = details ? priceBox.x : priceBox.x + (priceBox.w - width) / 2; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   for (const p of parts) {
     cx += p.lead || 0; c.font = p.font;
     if (p.kind === 'nis') {
@@ -79,16 +76,25 @@ function drawTag(c, t, x, y, w, h) {
     if (p.kind === 'agorot') c.fillRect(cx, base - cap + s * .48 * .72 + s * .05, p.w, Math.max(2, s * .035));
     cx += p.w + p.gap;
   }
-  if (infoBox.h) {
-    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const fit = fitLines(c, info, infoBox.w, infoBox.h, infoBox.h * .8, 1, 700);
-    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], infoBox.x + infoBox.w / 2, infoBox.y + infoBox.h / 2);
-  }
-  if (codeBox.h) {
-    // Barcode number only, left-to-right so leading zeros and symbols print as typed.
-    c.direction = 'ltr'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const fit = fitLines(c, t.barcode, codeBox.w, codeBox.h, codeBox.h * .78, 1, 600);
-    c.font = `600 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], codeBox.x + codeBox.w / 2, codeBox.y + codeBox.h / 2);
+  if (details) {
+    // Pack size / unit price and the barcode number, right-aligned beside the price.
+    const dx = ix + iw * .6, dw = iw * .4, lineSize = Math.min(bodyH * .22, PX_MM * 4.5), rows = [];
+    // Pack size and unit price each get their own line, never broken mid-phrase.
+    if (t.size) rows.push({ text: t.size, weight: 700, dir: 'rtl' });
+    if (t.unitPrice) rows.push({ text: t.unitPrice, weight: 700, dir: 'rtl' });
+    if (t.barcode) rows.push({ text: t.barcode, weight: 600, dir: 'ltr' });
+    const fitted = rows.map(r => { const f = fitLines(c, r.text, dw, lineSize * 1.2, lineSize, 1, r.weight); return { ...r, ...f }; });
+    // Size and unit price share one size so the two lines look like a pair.
+    const textSize = Math.min(...fitted.filter(r => r.dir === 'rtl').map(r => r.size));
+    fitted.forEach(r => { if (r.dir === 'rtl') r.size = textSize; });
+    const heights = fitted.map(r => r.lines.length * r.size * 1.2), gap = lineSize * .35;
+    let ry = bodyY + (bodyH - heights.reduce((a, b) => a + b, 0) - gap * (rows.length - 1)) / 2;
+    c.textAlign = 'right'; c.textBaseline = 'middle';
+    fitted.forEach((r, i) => {
+      c.direction = r.dir; c.font = `${r.weight} ${r.size}px ${FONT}`;
+      r.lines.forEach((l, j) => c.fillText(l, dx + dw, ry + r.size * 1.2 * (j + .5)));
+      ry += heights[i] + gap;
+    });
   }
   c.restore();
 }
