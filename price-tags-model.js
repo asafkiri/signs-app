@@ -1,11 +1,12 @@
 // Plain shelf price tags: no promotion logic, separate storage from the sign editor.
+// Every grid gives tags wider than tall, so they slide into a shelf strip.
 export const TAG_SIZES = [
-  { id: '4', cols: 2, rows: 2 },
-  { id: '6', cols: 2, rows: 3 },
+  { id: '4', cols: 1, rows: 4 },
+  { id: '6', cols: 1, rows: 6 },
   { id: '8', cols: 2, rows: 4 },
-  { id: '9', cols: 3, rows: 3 },
-  { id: '12', cols: 3, rows: 4 },
-  { id: '16', cols: 4, rows: 4 },
+  { id: '10', cols: 2, rows: 5 },
+  { id: '12', cols: 2, rows: 6 },
+  { id: '16', cols: 2, rows: 8 },
   { id: '24', cols: 3, rows: 8 }
 ];
 export const PER = [['', 'בלי יחידה'], ['unit', 'ליח׳'], ['kg', 'לק״ג'], ['100g', 'ל־100 גרם'], ['pack', 'למארז']];

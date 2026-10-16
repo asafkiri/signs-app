@@ -30,21 +30,34 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
 function drawTag(c, t, x, y, w, h) {
   const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
-  const info = [t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - code - ih * .04;
+  const info = [t.size, t.unitPrice].filter(Boolean).join(' · ');
+  let nameBox, priceBox, infoBox, codeBox, rule;
+  if (w / h >= 1.6) {
+    // Long shelf strips (RTL): name and details on the right, the price on the left, a short divider between.
+    const priceW = iw * .46, tx = ix + priceW + pad, textW = iw - priceW - pad;
+    const codeH = t.barcode ? Math.max(ih * .17, 30) : 0, infoH = info ? ih * .22 : 0, nameH = ih - codeH - infoH;
+    nameBox = { x: tx, y: iy, w: textW, h: nameH }; infoBox = { x: tx, y: iy + nameH, w: textW, h: infoH }; codeBox = { x: tx, y: iy + nameH + infoH, w: textW, h: codeH };
+    priceBox = { x: ix, y: iy, w: priceW, h: ih }; rule = { x: ix + priceW + pad / 2 - 1, y: iy + ih * .15, w: Math.max(2, ih * .012), h: ih * .7 };
+  } else {
+    const footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04;
+    nameBox = { x: ix, y: iy, w: iw, h: nameH }; priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - footer - code - ih * .04 };
+    infoBox = { x: ix, y: iy + ih - code - footer, w: iw, h: footer }; codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
+    rule = { x: x + w * .3, y: iy + nameH + ih * .01, w: w * .4, h: Math.max(2, ih * .012) };
+  }
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
-  const name = fitLines(c, t.name, iw, nameH, nameH * .48, 2);
+  const name = fitLines(c, t.name, nameBox.w, nameBox.h, Math.min(nameBox.h * .48, ih * .4), 2);
   c.font = `800 ${name.size}px ${FONT}`;
-  const lineH = name.size * 1.12, top = iy + (nameH - lineH * name.lines.length) / 2;
-  name.lines.forEach((l, i) => c.fillText(l, x + w / 2, top + lineH * (i + .5)));
-  c.fillStyle = ink; c.fillRect(x + w * .3, iy + nameH + ih * .01, w * .4, Math.max(2, ih * .012));
+  const lineH = name.size * 1.12, top = nameBox.y + (nameBox.h - lineH * name.lines.length) / 2;
+  name.lines.forEach((l, i) => c.fillText(l, nameBox.x + nameBox.w / 2, top + lineH * (i + .5)));
+  c.fillRect(rule.x, rule.y, rule.w, rule.h);
   // Hebrew order, laid out left→right: [₪ with the unit label above it] [shekels][agorot]
   const { shekels, agorot } = priceParts(t.price), parts = [];
   const measure = s => {
     parts.length = 0;
     const f = (weight, size) => `${weight} ${size}px ${FONT}`;
-    parts.push({ text: '₪', font: f(800, s * .3), gap: s * .07, color: ink, kind: 'nis', per: t.per, perFont: f(800, s * .19) });
-    parts.push({ text: shekels, font: f(900, s), gap: 0, color: ink, kind: 'shekels' });
-    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: 0, color: ink, kind: 'agorot', lead: s * .03 });
+    parts.push({ text: '₪', font: f(800, s * .3), gap: s * .07, kind: 'nis', per: t.per, perFont: f(800, s * .19) });
+    parts.push({ text: shekels, font: f(900, s), gap: 0, kind: 'shekels' });
+    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: 0, kind: 'agorot', lead: s * .03 });
     c.direction = 'ltr';
     return parts.reduce((sum, p) => {
       c.font = p.font; p.w = c.measureText(p.text).width;
@@ -52,11 +65,11 @@ function drawTag(c, t, x, y, w, h) {
       return sum + (p.lead || 0) + p.w + p.gap;
     }, 0);
   };
-  let s = priceH / .78; const total = measure(s); if (total > iw) { s *= iw / total; measure(s); }
-  const width = parts.reduce((sum, p) => sum + (p.lead || 0) + p.w + p.gap, 0), cap = s * .72, base = priceTop + (priceH + cap) / 2;
-  let cx = x + (w - width) / 2; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+  let s = priceBox.h / .78; const total = measure(s); if (total > priceBox.w) { s *= priceBox.w / total; measure(s); }
+  const width = parts.reduce((sum, p) => sum + (p.lead || 0) + p.w + p.gap, 0), cap = s * .72, base = priceBox.y + (priceBox.h + cap) / 2;
+  let cx = priceBox.x + (priceBox.w - width) / 2; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   for (const p of parts) {
-    cx += p.lead || 0; c.font = p.font; c.fillStyle = p.color;
+    cx += p.lead || 0; c.font = p.font;
     if (p.kind === 'nis') {
       // ₪ sits on the baseline at the right of its column, next to the number; the unit label sits above it.
       c.textAlign = 'right'; c.fillText(p.text, cx + p.w, base);
@@ -66,16 +79,16 @@ function drawTag(c, t, x, y, w, h) {
     if (p.kind === 'agorot') c.fillRect(cx, base - cap + s * .48 * .72 + s * .05, p.w, Math.max(2, s * .035));
     cx += p.w + p.gap;
   }
-  if (footer) {
-    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
-    const fit = fitLines(c, info, iw, footer, footer * .8, 1, 700);
-    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - code - footer / 2);
+  if (infoBox.h) {
+    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const fit = fitLines(c, info, infoBox.w, infoBox.h, infoBox.h * .8, 1, 700);
+    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], infoBox.x + infoBox.w / 2, infoBox.y + infoBox.h / 2);
   }
-  if (code) {
+  if (codeBox.h) {
     // Barcode number only, left-to-right so leading zeros and symbols print as typed.
-    c.direction = 'ltr'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
-    const fit = fitLines(c, t.barcode, iw, code, code * .78, 1, 600);
-    c.font = `600 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - code / 2);
+    c.direction = 'ltr'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    const fit = fitLines(c, t.barcode, codeBox.w, codeBox.h, codeBox.h * .78, 1, 600);
+    c.font = `600 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], codeBox.x + codeBox.w / 2, codeBox.y + codeBox.h / 2);
   }
   c.restore();
 }
