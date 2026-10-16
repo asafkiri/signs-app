@@ -8,7 +8,6 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   await page.setViewportSize({ width: 390, height: 844 });
   const before = await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k !== 'signs-app:v1:price-tags').map(k => [k, localStorage.getItem(k)])));
   const activeType = await page.locator('.header-nav [data-type][aria-pressed=true]').getAttribute('data-type');
-  const editorPng = await page.evaluate(() => document.querySelector('#signPages canvas')?.toDataURL() || '');
   await page.locator('#open-price-tags').click();
   ok(await page.locator('#price-view').isVisible()); ok(await page.locator('#editor-view').isHidden()); ok(await page.locator('#action-bar').isHidden());
   eq(await page.locator('#open-price-tags').getAttribute('aria-pressed'), 'true');
@@ -41,6 +40,9 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   eq(await page.locator('#pt-print-pages .print-sheet').count(), 2); ok(await page.evaluate(() => document.documentElement.classList.contains('pt-printing')));
   // The dialog's close event is dispatched as a separate task.
   await page.locator('#pt-close-print').click(); await page.waitForFunction(() => !document.documentElement.classList.contains('pt-printing')); ok(await page.locator('#pt-print-dialog').isHidden());
+  // Same-session reference: WebKit antialiasing may differ across reloads, not within one.
+  await page.locator(`[data-type=${activeType}]`).click(); await page.waitForTimeout(200);
+  const editorPng = await page.evaluate(() => document.querySelector('#signPages canvas')?.toDataURL() || '');
   await page.locator('#open-price-tags').click(); await page.locator(`[data-type=${activeType}]`).click();
   ok(await page.locator('#editor-view').isVisible()); ok(await page.locator('#action-bar').isVisible()); eq(await page.locator(`[data-type=${activeType}]`).getAttribute('aria-pressed'), 'true');
   eq(await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k !== 'signs-app:v1:price-tags').map(k => [k, localStorage.getItem(k)]))), before);
