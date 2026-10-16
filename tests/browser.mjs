@@ -11,6 +11,7 @@ import { checkClearAll } from './clear-all-browser.mjs';
 import { checkOutdoor } from './outdoor-browser.mjs';
 import { checkPrintSelection } from './print-selection-browser.mjs';
 import { checkPrintLayout } from './print-layout-browser.mjs';
+import { checkPriceTags } from './price-tags-browser.mjs';
 const browserNames=['chromium','webkit'].filter(name=>!process.env.SIGNS_TEST_BROWSER||process.env.SIGNS_TEST_BROWSER===name);
 const root=process.cwd(),out=path.join(root,'artifacts');fs.mkdirSync(out,{recursive:true});
 const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.webmanifest':'application/manifest+json'};
@@ -49,28 +50,30 @@ try{
   await card().locator('[data-field=withBarcodes]').uncheck();await card().locator('.barcode-details summary').click();
   for(let i=1;i<5;i++){await page.locator('#new-sign').click();const c=page.locator('#cards>.card').nth(i);await c.locator('[data-field=title]').fill(`שלט ${i+1}`);await c.locator('[data-field=price]').fill('10');}
   await page.waitForTimeout(250);eq(await page.locator('#cards>.card').count(),5);eq(await page.locator('#signPages canvas').count(),2);
-  await page.locator('#save-sign').click();eq(await page.locator('#library-count').textContent(),'5');await load();eq(await page.locator('#cards>.card').count(),5);eq(await field('price').inputValue(),'35');
-  await page.locator('#open-library').click();await page.locator('.saved-sign input').last().check();await page.locator('#load-selected').click();eq(await page.locator('#cards>.card').count(),1);
+  await load();eq(await page.locator('#cards>.card').count(),5);eq(await field('price').inputValue(),'35');
+  for(let i=0;i<4;i++)await page.locator('#cards>.card').last().locator('[data-action=remove]').click();eq(await page.locator('#cards>.card').count(),1);
+  // The saved-signs screen was removed; its button and screen must not come back.
+  eq(await page.locator('#open-library, #library-view, #save-sign, #back').count(),0);
   await card().locator('[data-kind=pct]').click();await field('pct').fill('25');await page.waitForTimeout(150);await page.locator('#preview-print').click();ok(await page.locator('#print-dialog').isVisible());await page.locator('#close-print').click();
   await card().locator('[data-kind=unit]').click();await field('title').fill('לחמניות עשרייה ברמן');await field('price').fill('12.90');
   await page.locator('[data-type=outdoor]').click();eq(await page.locator('[data-field=start]').count(),0);eq(await page.locator('[data-field=end]').count(),1);eq(await page.locator('.template-option').count(),7);ok(await page.locator('#layouts').isHidden());
   for(const template of ['frame','banner','burst','ticket','elegant','split','bold']){await page.locator(`[data-template=${template}]`).click();await page.waitForTimeout(120);eq(await page.locator(`[data-template=${template}]`).getAttribute('aria-pressed'),'true');if(name==='chromium')await page.locator('#signPages canvas').first().screenshot({path:path.join(out,`template-${template}.png`)});}
   await checkOutdoor({page,name,out,ok,eq,load});
   await checkIndoorPrices({page,name,out,ok,eq});
-  await page.locator('[data-type=indoor]').click();await field('title').fill('<img src=x onerror=alert(1)>');await page.locator('#save-sign').click();eq(await page.locator('#library-list img').count(),0);
+  await page.locator('[data-type=indoor]').click();await field('title').fill('<img src=x onerror=alert(1)>');await page.waitForTimeout(150);eq(await page.locator('#cards img').count(),0);
   for(const width of [320,390,430,1440]){await page.setViewportSize({width,height:900});eq(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);}
   if(name==='chromium')await page.screenshot({path:path.join(out,'familiar-desktop.png'),fullPage:true});
   await checkThreeLayout({page,name,out,ok,eq,load});
   await checkPromoBadge({page,name,out,ok,eq,load});
   await checkClearAll({page,name,out,ok,eq,load});
   await checkPrintSelection({page,name,out,ok,eq,load});
-  await checkPrintLayout({page,name,out,ok,eq,load});
+  await checkPrintLayout({page,name,out,ok,eq,load});await checkPriceTags({page,name,out,ok,eq,load});
   eq(errors,[]);await context.close();
   // Existing v1 storage is read, not overwritten or silently repriced.
   const legacy=await browser.newContext({viewport:{width:390,height:844}});await legacy.addInitScript(()=>{
    const d={title:'שלט שמור ישן',subtitle:'',entry:'calc',kind:'bundle',quantity:'2',price:'31.47',free:'',cost:'10',vat:'18',margin:'25',rounding:'exact',type:'indoor',template:'frame',store:'מינימרקט שלום',banner:'מבצע!',note:'',oldPrice:'',start:'',end:'',barcodes:[],withBarcodes:false};
    localStorage.setItem('signs-app:v1:draft',JSON.stringify(d));localStorage.setItem('signs-app:v1:item:legacy',{toString:()=>JSON.stringify({id:'legacy',draft:d,updatedAt:1})});
-  });const lp=await legacy.newPage();await lp.goto('http://127.0.0.1:4173/signs-app/');await lp.waitForFunction(version=>document.documentElement.dataset.version===version,VERSION);eq(await lp.locator('[data-field=price]').inputValue(),'31.47');eq(await lp.locator('#library-count').textContent(),'1');await lp.locator('[data-detail=pricing] summary').click();eq(await lp.locator('[data-field=profitMode]').inputValue(),'margin');eq(await lp.locator('[data-field=rounding]').inputValue(),'exact');await legacy.close();await browser.close();
+  });const lp=await legacy.newPage();await lp.goto('http://127.0.0.1:4173/signs-app/');await lp.waitForFunction(version=>document.documentElement.dataset.version===version,VERSION);eq(await lp.locator('[data-field=price]').inputValue(),'31.47');eq(await lp.evaluate(()=>localStorage.getItem('signs-app:v1:item:legacy')!==null),true);await lp.locator('[data-detail=pricing] summary').click();eq(await lp.locator('[data-field=profitMode]').inputValue(),'margin');eq(await lp.locator('[data-field=rounding]').inputValue(),'exact');await legacy.close();await browser.close();
  }
  fs.writeFileSync(path.join(out,'browser-results.json'),JSON.stringify({checks,status:'passed',browsers:browserNames,version:VERSION},null,2));console.log(`PASS: ${checks} browser assertions (${browserNames.join(' + ')})`);
 }finally{server.close();}
