@@ -30,30 +30,39 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
 function drawTag(c, t, x, y, w, h) {
   const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
-  const info = [t.per, t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - code - ih * .04;
+  const info = [t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - code - ih * .04;
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
   const name = fitLines(c, t.name, iw, nameH, nameH * .48, 2);
   c.font = `800 ${name.size}px ${FONT}`;
   const lineH = name.size * 1.12, top = iy + (nameH - lineH * name.lines.length) / 2;
   name.lines.forEach((l, i) => c.fillText(l, x + w / 2, top + lineH * (i + .5)));
   c.fillStyle = ink; c.fillRect(x + w * .3, iy + nameH + ih * .01, w * .4, Math.max(2, ih * .012));
-  // Price is laid out left→right: [shekels][agorot] [₪]
+  // Hebrew order, laid out left→right: [₪ with the unit label above it] [shekels][agorot]
   const { shekels, agorot } = priceParts(t.price), parts = [];
   const measure = s => {
     parts.length = 0;
     const f = (weight, size) => `${weight} ${size}px ${FONT}`;
+    parts.push({ text: '₪', font: f(800, s * .3), gap: s * .07, color: ink, kind: 'nis', per: t.per, perFont: f(800, s * .19) });
     parts.push({ text: shekels, font: f(900, s), gap: 0, color: ink, kind: 'shekels' });
-    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: s * .08, color: ink, kind: 'agorot' });
-    parts.push({ text: '₪', font: f(800, s * .3), gap: 0, color: ink, kind: 'nis' });
+    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: 0, color: ink, kind: 'agorot', lead: s * .03 });
     c.direction = 'ltr';
-    return parts.reduce((sum, p) => { c.font = p.font; p.w = c.measureText(p.text).width; return sum + p.w + p.gap; }, 0);
+    return parts.reduce((sum, p) => {
+      c.font = p.font; p.w = c.measureText(p.text).width;
+      if (p.per) { c.font = p.perFont; p.perW = c.measureText(p.per).width; p.w = Math.max(p.w, p.perW); }
+      return sum + (p.lead || 0) + p.w + p.gap;
+    }, 0);
   };
   let s = priceH / .78; const total = measure(s); if (total > iw) { s *= iw / total; measure(s); }
-  const width = parts.reduce((sum, p) => sum + p.w + p.gap, 0), cap = s * .72, base = priceTop + (priceH + cap) / 2;
+  const width = parts.reduce((sum, p) => sum + (p.lead || 0) + p.w + p.gap, 0), cap = s * .72, base = priceTop + (priceH + cap) / 2;
   let cx = x + (w - width) / 2; c.textAlign = 'left'; c.textBaseline = 'alphabetic';
   for (const p of parts) {
-    c.font = p.font; c.fillStyle = p.color;
-    c.fillText(p.text, cx, p.kind === 'agorot' ? base - cap + s * .48 * .72 : base);
+    cx += p.lead || 0; c.font = p.font; c.fillStyle = p.color;
+    if (p.kind === 'nis') {
+      // ₪ sits on the baseline at the right of its column, next to the number; the unit label sits above it.
+      c.textAlign = 'right'; c.fillText(p.text, cx + p.w, base);
+      if (p.per) { c.font = p.perFont; c.fillText(p.per, cx + p.w, base - s * .34); }
+      c.textAlign = 'left';
+    } else c.fillText(p.text, cx, p.kind === 'agorot' ? base - cap + s * .48 * .72 : base);
     if (p.kind === 'agorot') c.fillRect(cx, base - cap + s * .48 * .72 + s * .05, p.w, Math.max(2, s * .035));
     cx += p.w + p.gap;
   }
