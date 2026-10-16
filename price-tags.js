@@ -31,19 +31,13 @@ function drawTag(c, t, x, y, w, h) {
   const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
   const info = [t.size, t.unitPrice].filter(Boolean).join(' · ');
-  let nameBox, priceBox, infoBox, codeBox, rule;
-  if (w / h >= 1.6) {
-    // Long shelf strips (RTL): name and details on the right, the price on the left, a short divider between.
-    const priceW = iw * .46, tx = ix + priceW + pad, textW = iw - priceW - pad;
-    const codeH = t.barcode ? Math.max(ih * .17, 30) : 0, infoH = info ? ih * .22 : 0, nameH = ih - codeH - infoH;
-    nameBox = { x: tx, y: iy, w: textW, h: nameH }; infoBox = { x: tx, y: iy + nameH, w: textW, h: infoH }; codeBox = { x: tx, y: iy + nameH + infoH, w: textW, h: codeH };
-    priceBox = { x: ix, y: iy, w: priceW, h: ih }; rule = { x: ix + priceW + pad / 2 - 1, y: iy + ih * .15, w: Math.max(2, ih * .012), h: ih * .7 };
-  } else {
-    const footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04;
-    nameBox = { x: ix, y: iy, w: iw, h: nameH }; priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - footer - code - ih * .04 };
-    infoBox = { x: ix, y: iy + ih - code - footer, w: iw, h: footer }; codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
-    rule = { x: x + w * .3, y: iy + nameH + ih * .01, w: w * .4, h: Math.max(2, ih * .012) };
-  }
+  // Name on top, a short rule, the price under it, then pack details and barcode: one column reads as one tag.
+  // Very long, low strips give the price more of the height so it stays the biggest thing on the tag.
+  const strip = w / h > 2.2, footer = info ? ih * (strip ? .12 : .14) : 0, code = t.barcode ? Math.max(ih * (strip ? .08 : .09), 30) : 0;
+  const nameH = ih * (strip ? .28 : w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04;
+  const nameBox = { x: ix, y: iy, w: iw, h: nameH }, priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - footer - code - ih * .04 };
+  const infoBox = { x: ix, y: iy + ih - code - footer, w: iw, h: footer }, codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
+  const rule = { x: x + w * .3, y: iy + nameH + ih * .01, w: w * .4, h: Math.max(2, ih * .012) };
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
   const name = fitLines(c, t.name, nameBox.w, nameBox.h, Math.min(nameBox.h * .48, ih * .4), 2);
   c.font = `800 ${name.size}px ${FONT}`;
