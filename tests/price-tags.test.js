@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanState, checkTag, parseNumber, unitPriceText, priceParts, tagPages, newTag, MAX_PAGES } from '../price-tags-model.js';
+import { TAG_SIZES, cleanState, checkTag, parseNumber, unitPriceText, priceParts, tagPages, newTag, MAX_PAGES } from '../price-tags-model.js';
 const tag = o => checkTag({ ...newTag(), name: 'במבה', price: '4.5', ...o });
 test('empty rows are ignored, partial rows report what is missing', () => {
   assert.deepEqual(checkTag(newTag()), { empty: true });
@@ -27,8 +27,8 @@ test('weighed goods never show a pack size', () => {
   assert.equal(t.size, ''); assert.equal(t.unitPrice, ''); assert.equal(t.per, 'לק״ג');
 });
 test('copies expand and fill pages of the chosen grid', () => {
-  const { size, pages } = tagPages([tag({ copies: '3' }), tag({})], '9');
-  assert.deepEqual([size.cols, size.rows], [3, 3]); assert.equal(pages.length, 1); assert.equal(pages[0].length, 4);
+  const { size, pages } = tagPages([tag({ copies: '3' }), tag({})], '10');
+  assert.deepEqual([size.cols, size.rows], [2, 5]); assert.ok(TAG_SIZES.every(z => (198 / z.cols) > (285 / z.rows)), 'every tag is wider than tall'); assert.equal(pages.length, 1); assert.equal(pages[0].length, 4);
   assert.equal(tagPages(Array(25).fill(tag({})), '24').pages.length, 2);
   assert.throws(() => tagPages(Array(MAX_PAGES * 4 + 1).fill(tag({})), '4'));
 });

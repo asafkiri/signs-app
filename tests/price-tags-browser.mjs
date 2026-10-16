@@ -23,13 +23,13 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   await row(0).locator('[data-k=amount]').fill('80');
   await row(0).locator('[data-k=copies]').fill('3');
   await row(0).locator('[data-k=barcode]').fill('7290000066318');
-  await page.locator('[data-size="9"]').click();
+  await page.locator('[data-size="10"]').click();
   eq(await page.locator('#pt-count').textContent(), '4 שלטים · 1 דף');
-  await row(1).locator('[data-k=barcode]').fill('ברקוד'); await page.locator('[data-size="9"]').click();
+  await row(1).locator('[data-k=barcode]').fill('ברקוד'); await page.locator('[data-size="10"]').click();
   ok((await row(1).locator('.pt-row-error').textContent()).startsWith('ברקוד לא תקין')); eq(await page.locator('#pt-count').textContent(), '3 שלטים · 1 דף');
-  await row(1).locator('[data-k=barcode]').fill(''); await page.locator('[data-size="9"]').click();
+  await row(1).locator('[data-k=barcode]').fill(''); await page.locator('[data-size="10"]').click();
   eq(await page.locator('#pt-pages canvas').evaluateAll(c => c.map(x => [x.width, x.height])), [[1860, 2631]]);
-  await page.locator('#pt-add').click(); await row(2).locator('[data-k=name]').fill('בלי מחיר'); await page.locator('[data-size="9"]').click();
+  await page.locator('#pt-add').click(); await row(2).locator('[data-k=name]').fill('בלי מחיר'); await page.locator('[data-size="10"]').click();
   eq(await row(2).locator('.pt-row-error').textContent(), 'חסר מחיר'); ok(await page.locator('#pt-error').isVisible());
   await row(2).locator('[data-k=print]').uncheck(); ok(await page.locator('#pt-error').isHidden());
   for (let i = 0; i < 25; i++) { await page.locator('#pt-add').click(); await row(3 + i).locator('[data-k=name]').fill(`מוצר ${i + 1}`); await row(3 + i).locator('[data-k=price]').fill(String(i + 1)); }
