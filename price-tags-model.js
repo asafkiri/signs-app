@@ -10,7 +10,6 @@ export const TAG_SIZES = [
 ];
 export const PER = [['', 'בלי יחידה'], ['unit', 'ליח׳'], ['kg', 'לק״ג'], ['100g', 'ל־100 גרם'], ['pack', 'למארז']];
 export const MEASURES = [['g', 'גרם'], ['kg', 'ק״ג'], ['ml', 'מ״ל'], ['l', 'ליטר'], ['units', 'יח׳']];
-export const STYLES = [['color', 'צבע'], ['bw', 'שחור־לבן']];
 export const MAX_TAGS = 200, MAX_COPIES = 50, MAX_PAGES = 40;
 const enumOf = (list, value, fallback) => list.some(([v]) => v === value) ? value : fallback;
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -23,7 +22,7 @@ export function cleanTag(input = {}) {
 export function cleanState(input) {
   const s = input && typeof input === 'object' ? input : {};
   const tags = Array.isArray(s.tags) ? s.tags.slice(0, MAX_TAGS).map(cleanTag) : [];
-  return { size: TAG_SIZES.some(z => z.id === s.size) ? s.size : '12', style: enumOf(STYLES, s.style, 'color'), tags: tags.length ? tags : [newTag()] };
+  return { size: TAG_SIZES.some(z => z.id === s.size) ? s.size : '12', tags: tags.length ? tags : [newTag()] };
 }
 
 // Returns NaN for anything that is not a plain positive decimal (comma allowed).

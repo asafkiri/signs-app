@@ -34,6 +34,6 @@ test('copies expand and fill pages of the chosen grid', () => {
 });
 test('stored state never trusts unknown values', () => {
   const s = cleanState({ size: '999', style: 'neon', tags: [{ name: 'x'.repeat(200), per: 'evil', measure: 'bad', skip: 'yes' }] });
-  assert.equal(s.size, '12'); assert.equal(s.style, 'color'); assert.equal(s.tags[0].name.length, 60); assert.equal(s.tags[0].per, ''); assert.equal(s.tags[0].measure, 'g'); assert.equal(s.tags[0].skip, false);
+  assert.equal(s.size, '12'); assert.equal('style' in s, false); assert.equal(s.tags[0].name.length, 60); assert.equal(s.tags[0].per, ''); assert.equal(s.tags[0].measure, 'g'); assert.equal(s.tags[0].skip, false);
   assert.equal(cleanState(null).tags.length, 1);
 });

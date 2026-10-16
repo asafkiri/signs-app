@@ -1,5 +1,5 @@
 // "שלטי מחיר" tab. Self-contained: own state, storage key, preview and print dialog.
-import { TAG_SIZES, PER, MEASURES, STYLES, MAX_TAGS, newTag, cleanState, checkTag, priceParts, tagPages } from './price-tags-model.js';
+import { TAG_SIZES, PER, MEASURES, MAX_TAGS, newTag, cleanState, checkTag, priceParts, tagPages } from './price-tags-model.js';
 import { canvasesToPDF } from './pdf.js';
 const $ = id => document.getElementById(id), KEY = 'signs-app:v1:price-tags';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -25,8 +25,9 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
   let line = str; while (line.length > 1 && c.measureText(line + '…').width > maxW) line = line.slice(0, -1);
   return { size: 10, lines: [line === str ? line : line + '…'] };
 }
-function drawTag(c, t, x, y, w, h, style) {
-  const accent = style === 'bw' ? '#000' : '#e11d48', ink = style === 'bw' ? '#000' : '#0f172a', soft = style === 'bw' ? '#000' : '#334155';
+// Black only: tags are printed black-and-white.
+function drawTag(c, t, x, y, w, h) {
+  const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
   const info = [t.per, t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - ih * .04;
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
@@ -34,15 +35,15 @@ function drawTag(c, t, x, y, w, h, style) {
   c.font = `800 ${name.size}px ${FONT}`;
   const lineH = name.size * 1.12, top = iy + (nameH - lineH * name.lines.length) / 2;
   name.lines.forEach((l, i) => c.fillText(l, x + w / 2, top + lineH * (i + .5)));
-  c.fillStyle = accent; c.fillRect(x + w * .3, iy + nameH + ih * .01, w * .4, Math.max(2, ih * .012));
+  c.fillStyle = ink; c.fillRect(x + w * .3, iy + nameH + ih * .01, w * .4, Math.max(2, ih * .012));
   // Price is laid out left→right: [shekels][agorot] [₪]
   const { shekels, agorot } = priceParts(t.price), parts = [];
   const measure = s => {
     parts.length = 0;
     const f = (weight, size) => `${weight} ${size}px ${FONT}`;
-    parts.push({ text: shekels, font: f(900, s), gap: 0, color: accent, kind: 'shekels' });
-    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: s * .08, color: accent, kind: 'agorot' });
-    parts.push({ text: '₪', font: f(800, s * .3), gap: 0, color: accent, kind: 'nis' });
+    parts.push({ text: shekels, font: f(900, s), gap: 0, color: ink, kind: 'shekels' });
+    if (agorot) parts.push({ text: agorot, font: f(900, s * .48), gap: s * .08, color: ink, kind: 'agorot' });
+    parts.push({ text: '₪', font: f(800, s * .3), gap: 0, color: ink, kind: 'nis' });
     c.direction = 'ltr';
     return parts.reduce((sum, p) => { c.font = p.font; p.w = c.measureText(p.text).width; return sum + p.w + p.gap; }, 0);
   };
@@ -56,20 +57,20 @@ function drawTag(c, t, x, y, w, h, style) {
     cx += p.w + p.gap;
   }
   if (footer) {
-    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = soft;
+    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
     const fit = fitLines(c, info, iw, footer, footer * .8, 1, 700);
     c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - footer / 2);
   }
   c.restore();
 }
-export function renderTagPage(tags, size, style) {
+export function renderTagPage(tags, size) {
   const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H;
   const c = canvas.getContext('2d'); c.fillStyle = '#fff'; c.fillRect(0, 0, W, H);
   const cw = (W - MARGIN * 2) / size.cols, ch = (H - MARGIN * 2) / size.rows;
   tags.forEach((t, i) => {
     // RTL page: the first tag sits at the top right.
     const col = i % size.cols, row = Math.floor(i / size.cols), x = W - MARGIN - (col + 1) * cw, y = MARGIN + row * ch;
-    drawTag(c, t, x, y, cw, ch, style);
+    drawTag(c, t, x, y, cw, ch);
     c.strokeStyle = '#a3a3a3'; c.lineWidth = 2; c.strokeRect(x, y, cw, ch);
   });
   return canvas;
@@ -86,7 +87,6 @@ function row(t, i) {
 function renderList() {
   $('pt-list').innerHTML = state.tags.map(row).join('');
   $('pt-sizes').innerHTML = TAG_SIZES.map(z => `<button type="button" data-size="${z.id}" aria-pressed="${z.id === state.size}" class="${z.id === state.size ? 'active' : ''}">${z.id} בדף</button>`).join('');
-  $('pt-styles').innerHTML = STYLES.map(([v, label]) => `<button type="button" data-style="${v}" aria-pressed="${v === state.style}" class="${v === state.style ? 'active' : ''}">${label}</button>`).join('');
   refresh();
 }
 function checked() {
@@ -104,7 +104,7 @@ function refresh() {
     const plan = tagPages(valid, state.size), count = valid.reduce((n, r) => n + r.copies, 0);
     $('pt-count').textContent = count ? `${count} שלטים · ${plan.pages.length} ${plan.pages.length === 1 ? 'דף' : 'דפים'}` : '';
     if (!count) { $('pt-pages').innerHTML = `<div class="empty-state">${errors ? 'יש לתקן את השורות המסומנות.' : 'הוסיפו שם ומחיר למוצר אחד לפחות.'}</div>`; return; }
-    plan.pages.forEach((tags, i) => { const cv = renderTagPage(tags, plan.size, state.style); pages.push(cv); if (plan.pages.length > 1) { const l = document.createElement('div'); l.className = 'page-label'; l.textContent = `עמוד ${i + 1} מתוך ${plan.pages.length}`; $('pt-pages').append(l); } $('pt-pages').append(cv); });
+    plan.pages.forEach((tags, i) => { const cv = renderTagPage(tags, plan.size); pages.push(cv); if (plan.pages.length > 1) { const l = document.createElement('div'); l.className = 'page-label'; l.textContent = `עמוד ${i + 1} מתוך ${plan.pages.length}`; $('pt-pages').append(l); } $('pt-pages').append(cv); });
     if (errors) { $('pt-error').textContent = `${errors} ${errors === 1 ? 'שורה לא תקינה ולא נכנסה' : 'שורות לא תקינות ולא נכנסו'} לדף.`; $('pt-error').hidden = false; }
     filesReady = Promise.all(pages.map((cv, i) => new Promise((ok, fail) => cv.toBlob(b => b ? ok(new File([b], `price-tags-${i + 1}.png`, { type: 'image/png' })) : fail(new Error('יצירת התמונה נכשלה')), 'image/png')))).then(f => { if (rev === revision) files = f; }).catch(err => { if (rev === revision) toast(err.message); });
   } catch (err) { $('pt-error').textContent = err.message; $('pt-error').hidden = false; $('pt-count').textContent = ''; }
@@ -137,7 +137,6 @@ $('pt-add').addEventListener('click', () => addRow());
 $('pt-all').addEventListener('change', ev => { state.tags.forEach(t => t.skip = !ev.target.checked); renderList(); });
 $('pt-clear').addEventListener('click', () => { if (!confirm('למחוק את כל רשימת שלטי המחיר? אי אפשר לבטל.')) return; state.tags = [newTag()]; renderList(); });
 $('pt-sizes').addEventListener('click', ev => { const b = ev.target.closest('[data-size]'); if (b) { state.size = b.dataset.size; renderList(); } });
-$('pt-styles').addEventListener('click', ev => { const b = ev.target.closest('[data-style]'); if (b) { state.style = b.dataset.style; renderList(); } });
 
 // ---- output ----
 function ready() { if (timer) refresh(); if (!pages.length) { toast('אין שלטים תקינים להדפסה'); return false; } return true; }
