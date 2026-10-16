@@ -14,10 +14,10 @@ export const MAX_TAGS = 200, MAX_COPIES = 50, MAX_PAGES = 40;
 const enumOf = (list, value, fallback) => list.some(([v]) => v === value) ? value : fallback;
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-export function newTag() { return { name: '', price: '', per: '', amount: '', measure: 'g', copies: '1', skip: false }; }
+export function newTag() { return { name: '', price: '', per: '', amount: '', measure: 'g', copies: '1', barcode: '', skip: false }; }
 export function cleanTag(input = {}) {
   const t = input && typeof input === 'object' ? input : {};
-  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, ''), amount: text(t.amount, 10), measure: enumOf(MEASURES, t.measure, 'g'), copies: text(t.copies, 3) || '1', skip: t.skip === true };
+  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, ''), amount: text(t.amount, 10), measure: enumOf(MEASURES, t.measure, 'g'), copies: text(t.copies, 3) || '1', barcode: text(t.barcode, 32), skip: t.skip === true };
 }
 export function cleanState(input) {
   const s = input && typeof input === 'object' ? input : {};
@@ -57,9 +57,10 @@ export function checkTag(input) {
   if (t.amount) { amount = parseNumber(t.amount, 3); if (Number.isNaN(amount)) return { error: 'גודל האריזה לא תקין' }; }
   const copies = /^\d{1,2}$/.test(t.copies) ? Number(t.copies) : NaN;
   if (!(copies >= 1 && copies <= MAX_COPIES)) return { error: `מספר עותקים בין 1 ל־${MAX_COPIES}` };
+  if (t.barcode && !/^[\x20-\x7e]{1,32}$/.test(t.barcode)) return { error: 'ברקוד לא תקין — עד 32 תווים ללא עברית' };
   // Weighed goods (per kg / 100 g) already state their measure; a pack size would mislead.
   const packaged = !['kg', '100g'].includes(t.per) && amount;
-  return { tag: { name: t.name, price, per: perLabel(t.per), size: packaged ? sizeText(amount, t.measure) : '', unitPrice: packaged ? unitPriceText(price, amount, t.measure) : '' }, copies };
+  return { tag: { name: t.name, price, per: perLabel(t.per), size: packaged ? sizeText(amount, t.measure) : '', unitPrice: packaged ? unitPriceText(price, amount, t.measure) : '', barcode: t.barcode }, copies };
 }
 
 export function priceParts(price) {
