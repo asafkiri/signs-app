@@ -1,6 +1,7 @@
 // "שלטי מחיר" tab. Self-contained: own state, storage key, preview and print dialog.
 import { TAG_SIZES, PER, MEASURES, MAX_TAGS, newTag, cleanState, checkTag, priceParts, tagPages } from './price-tags-model.js';
 import { canvasesToPDF } from './pdf.js';
+import { startScanner } from './scanner.js';
 const $ = id => document.getElementById(id), KEY = 'signs-app:v1:price-tags';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FONT = '"Outdoor Black", Heebo, Arial, sans-serif', W = 1860, H = 2631, MARGIN = 53;
@@ -29,7 +30,7 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
 function drawTag(c, t, x, y, w, h) {
   const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
-  const info = [t.per, t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - ih * .04;
+  const info = [t.per, t.size, t.unitPrice].filter(Boolean).join(' · '), footer = info ? ih * .14 : 0, code = t.barcode ? Math.max(ih * .09, 30) : 0, nameH = ih * (w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04, priceH = ih - nameH - footer - code - ih * .04;
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
   const name = fitLines(c, t.name, iw, nameH, nameH * .48, 2);
   c.font = `800 ${name.size}px ${FONT}`;
@@ -59,7 +60,13 @@ function drawTag(c, t, x, y, w, h) {
   if (footer) {
     c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
     const fit = fitLines(c, info, iw, footer, footer * .8, 1, 700);
-    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - footer / 2);
+    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - code - footer / 2);
+  }
+  if (code) {
+    // Barcode number only, left-to-right so leading zeros and symbols print as typed.
+    c.direction = 'ltr'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
+    const fit = fitLines(c, t.barcode, iw, code, code * .78, 1, 600);
+    c.font = `600 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], x + w / 2, iy + ih - code / 2);
   }
   c.restore();
 }
@@ -82,6 +89,7 @@ function row(t, i) {
   return `<article class="pt-row${t.skip ? ' skipped' : ''}" data-i="${i}">
   <div class="pt-line"><input type="checkbox" data-k="print" ${t.skip ? '' : 'checked'} aria-label="להדפסה, שורה ${i + 1}"><input data-k="name" value="${esc(t.name)}" maxlength="60" placeholder="שם המוצר" aria-label="שם המוצר, שורה ${i + 1}" autocomplete="off"><input data-k="price" class="pt-price" value="${esc(t.price)}" maxlength="10" inputmode="decimal" dir="ltr" placeholder="₪ 0.00" aria-label="מחיר, שורה ${i + 1}" autocomplete="off"></div>
   <div class="pt-line pt-extra"><select data-k="per" aria-label="המחיר הוא">${options(PER, t.per)}</select><input data-k="amount" value="${esc(t.amount)}" maxlength="10" inputmode="decimal" dir="ltr" placeholder="גודל" aria-label="גודל האריזה (רשות)" autocomplete="off"><select data-k="measure" aria-label="יחידת גודל">${options(MEASURES, t.measure)}</select><label class="pt-copies">×<input data-k="copies" value="${esc(t.copies)}" maxlength="2" inputmode="numeric" dir="ltr" aria-label="עותקים"></label><button type="button" data-remove class="pt-remove" aria-label="מחיקת שורה ${i + 1}">×</button></div>
+  <div class="pt-line pt-extra"><input data-k="barcode" value="${esc(t.barcode)}" maxlength="32" inputmode="numeric" dir="ltr" placeholder="ברקוד (רשות)" aria-label="ברקוד, שורה ${i + 1}" autocomplete="off"><button type="button" data-scan class="pt-scan">סריקה</button></div>
   <p class="pt-row-error" role="alert" hidden></p></article>`;
 }
 function renderList() {
@@ -129,6 +137,7 @@ $('pt-list').addEventListener('keydown', ev => {
   $('pt-list').children[i + 1].querySelector('[data-k=name]').focus();
 });
 $('pt-list').addEventListener('click', ev => {
+  const scan = ev.target.closest('[data-scan]'); if (scan) return openScan(state.tags[indexOf(scan)]);
   const b = ev.target.closest('[data-remove]'); if (!b) return;
   const i = indexOf(b), t = state.tags[i]; if ((t.name || t.price) && !confirm(`למחוק את ״${t.name || 'השורה'}״ מהרשימה?`)) return;
   state.tags.splice(i, 1); if (!state.tags.length) state.tags.push(newTag()); renderList();
@@ -137,6 +146,23 @@ $('pt-add').addEventListener('click', () => addRow());
 $('pt-all').addEventListener('change', ev => { state.tags.forEach(t => t.skip = !ev.target.checked); renderList(); });
 $('pt-clear').addEventListener('click', () => { if (!confirm('למחוק את כל רשימת שלטי המחיר? אי אפשר לבטל.')) return; state.tags = [newTag()]; renderList(); });
 $('pt-sizes').addEventListener('click', ev => { const b = ev.target.closest('[data-size]'); if (b) { state.size = b.dataset.size; renderList(); } });
+
+// ---- barcode scanning: shares the scan dialog markup; app.js stops the camera when it closes ----
+let scanGeneration = 0, stopScan = null;
+function closeScan() { scanGeneration++; stopScan?.(); stopScan = null; }
+async function openScan(tag) {
+  if (!tag) return;
+  closeScan(); const generation = scanGeneration, dialog = $('scan-dialog');
+  $('scan-status').textContent = 'מפעיל מצלמה…'; $('scan-torch').hidden = true; dialog.showModal();
+  try {
+    const stop = await startScanner($('camera'), code => {
+      if (state.tags.includes(tag)) { tag.barcode = String(code).trim().slice(0, 32); renderList(); }
+      if (dialog.open) dialog.close();
+    }, () => generation !== scanGeneration || !dialog.open, { frame: $('scan-frame'), torchButton: $('scan-torch'), onStatus: text => { $('scan-status').textContent = text; } });
+    if (generation !== scanGeneration) stop(); else stopScan = stop;
+  } catch (err) { if (generation === scanGeneration) $('scan-status').textContent = err.message; }
+}
+$('scan-dialog').addEventListener('close', closeScan);
 
 // ---- output ----
 function ready() { if (timer) refresh(); if (!pages.length) { toast('אין שלטים תקינים להדפסה'); return false; } return true; }

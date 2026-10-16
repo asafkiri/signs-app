@@ -22,8 +22,12 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   await row(1).locator('[data-k=per]').selectOption('kg');
   await row(0).locator('[data-k=amount]').fill('80');
   await row(0).locator('[data-k=copies]').fill('3');
+  await row(0).locator('[data-k=barcode]').fill('7290000066318');
   await page.locator('[data-size="9"]').click();
   eq(await page.locator('#pt-count').textContent(), '4 שלטים · 1 דף');
+  await row(1).locator('[data-k=barcode]').fill('ברקוד'); await page.locator('[data-size="9"]').click();
+  ok((await row(1).locator('.pt-row-error').textContent()).startsWith('ברקוד לא תקין')); eq(await page.locator('#pt-count').textContent(), '3 שלטים · 1 דף');
+  await row(1).locator('[data-k=barcode]').fill(''); await page.locator('[data-size="9"]').click();
   eq(await page.locator('#pt-pages canvas').evaluateAll(c => c.map(x => [x.width, x.height])), [[1860, 2631]]);
   await page.locator('#pt-add').click(); await row(2).locator('[data-k=name]').fill('בלי מחיר'); await page.locator('[data-size="9"]').click();
   eq(await row(2).locator('.pt-row-error').textContent(), 'חסר מחיר'); ok(await page.locator('#pt-error').isVisible());
@@ -35,7 +39,9 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   fs.writeFileSync(path.join(out, `${name}-price-tags.png`), Buffer.from(png.split(',')[1], 'base64'));
   await load(); await page.locator('#open-price-tags').click();
   eq(await page.locator('.pt-row').count(), 28); eq(await page.locator('[data-size][aria-pressed=true]').textContent(), '24 בדף');
-  eq(await row(1).locator('[data-k=per]').inputValue(), 'kg'); eq(await row(2).locator('[data-k=print]').isChecked(), false);
+  eq(await row(1).locator('[data-k=per]').inputValue(), 'kg'); eq(await row(0).locator('[data-k=barcode]').inputValue(), '7290000066318');
+  // The scan button opens the shared camera dialog; closing it leaves the tab as it was.
+  await row(0).locator('[data-scan]').click(); ok(await page.locator('#scan-dialog').isVisible()); await page.locator('#close-scan').click(); ok(await page.locator('#scan-dialog').isHidden()); ok(await page.locator('#price-view').isVisible()); eq(await row(2).locator('[data-k=print]').isChecked(), false);
   await page.locator('#pt-print').click(); ok(await page.locator('#pt-print-dialog').isVisible());
   eq(await page.locator('#pt-print-pages .print-sheet').count(), 2); ok(await page.evaluate(() => document.documentElement.classList.contains('pt-printing')));
   // The dialog's close event is dispatched as a separate task.

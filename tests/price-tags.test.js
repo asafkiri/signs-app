@@ -37,3 +37,9 @@ test('stored state never trusts unknown values', () => {
   assert.equal(s.size, '12'); assert.equal('style' in s, false); assert.equal(s.tags[0].name.length, 60); assert.equal(s.tags[0].per, ''); assert.equal(s.tags[0].measure, 'g'); assert.equal(s.tags[0].skip, false);
   assert.equal(cleanState(null).tags.length, 1);
 });
+test('barcode is optional, kept as typed, Hebrew rejected', () => {
+  assert.equal(tag({}).tag.barcode, '');
+  assert.equal(tag({ barcode: '0072900000123' }).tag.barcode, '0072900000123');
+  assert.ok(tag({ barcode: 'ברקוד' }).error);
+  assert.equal(cleanState({ tags: [{ name: 'x' }] }).tags[0].barcode, '');
+});
