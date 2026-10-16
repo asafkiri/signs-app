@@ -129,7 +129,7 @@ function refresh() {
 function schedule() { persist(); clearTimeout(timer); timer = setTimeout(refresh, 200); }
 function addRow(focus = true) {
   if (state.tags.length >= MAX_TAGS) return toast(`אפשר עד ${MAX_TAGS} מוצרים ברשימה`);
-  const last = state.tags.at(-1); state.tags.push({ ...newTag(), per: last?.per || '', measure: last?.measure || 'g' }); renderList();
+  const last = state.tags.at(-1); state.tags.push({ ...newTag(), measure: last?.measure || 'g' }); renderList();
   if (focus) $('pt-list').lastElementChild.querySelector('[data-k=name]').focus();
 }
 const indexOf = el => Number(el.closest('[data-i]')?.dataset.i);

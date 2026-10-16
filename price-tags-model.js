@@ -14,10 +14,10 @@ export const MAX_TAGS = 200, MAX_COPIES = 50, MAX_PAGES = 40;
 const enumOf = (list, value, fallback) => list.some(([v]) => v === value) ? value : fallback;
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-export function newTag() { return { name: '', price: '', per: '', amount: '', measure: 'g', copies: '1', barcode: '', skip: false }; }
+export function newTag() { return { name: '', price: '', per: 'unit', amount: '', measure: 'g', copies: '1', barcode: '', skip: false }; }
 export function cleanTag(input = {}) {
   const t = input && typeof input === 'object' ? input : {};
-  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, ''), amount: text(t.amount, 10), measure: enumOf(MEASURES, t.measure, 'g'), copies: text(t.copies, 3) || '1', barcode: text(t.barcode, 32), skip: t.skip === true };
+  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, 'unit'), amount: text(t.amount, 10), measure: enumOf(MEASURES, t.measure, 'g'), copies: text(t.copies, 3) || '1', barcode: text(t.barcode, 32), skip: t.skip === true };
 }
 export function cleanState(input) {
   const s = input && typeof input === 'object' ? input : {};
