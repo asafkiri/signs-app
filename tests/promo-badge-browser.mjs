@@ -89,12 +89,8 @@ export async function checkPromoBadge({page,name,out,ok,eq,load}) {
   await toggle().check();
   await page.locator('[data-layout="3"]').click();
   await load();eq(await toggle().isChecked(),true);
-  await page.locator('#save-sign').click();
   const draft=await page.evaluate(()=>JSON.parse(localStorage.getItem('signs-app:v1:workspace')).entries[0].draft);
   eq(draft.promoBadge,true);
-  await page.locator('#open-library').click();
-  for(const checkbox of await page.locator('.saved-sign input').all()) await checkbox.uncheck();
-  await page.locator('.saved-sign input').first().check();await page.locator('#load-selected').click();
   eq(await toggle().isChecked(),true);
   await card().locator('[data-action=copy]').click();
   eq(await page.locator('[data-field=promoBadge]').evaluateAll(items=>items.map(e=>e.checked)),[true,true]);

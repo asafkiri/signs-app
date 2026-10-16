@@ -4,7 +4,7 @@ import { canvasesToPDF } from './pdf.js';
 const $ = id => document.getElementById(id), KEY = 'signs-app:v1:price-tags';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const FONT = '"Outdoor Black", Heebo, Arial, sans-serif', W = 1860, H = 2631, MARGIN = 53;
-let state = cleanState(null), pages = [], files = [], filesReady = Promise.resolve(), revision = 0, timer, toastTimer, pdfFile = null, navSnapshot = null;
+let state = cleanState(null), pages = [], files = [], filesReady = Promise.resolve(), revision = 0, timer, toastTimer, pdfFile = null;
 try { state = cleanState(JSON.parse(localStorage.getItem(KEY) || 'null')); } catch {}
 function persist() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch { toast('השמירה במכשיר אינה זמינה'); } }
 function toast(message) { clearTimeout(toastTimer); $('toast').textContent = message; $('toast').hidden = false; toastTimer = setTimeout(() => $('toast').hidden = true, 4000); }
@@ -160,23 +160,17 @@ $('pt-native-print').addEventListener('click', () => window.print());
 $('pt-download-pdf').addEventListener('click', () => { if (pdfFile) download(pdfFile, pdfFile.name); });
 $('pt-share-pdf').addEventListener('click', async () => { if (!pdfFile) return; try { await navigator.share({ files: [pdfFile], title: 'שלטי מחיר' }); } catch (err) { if (err.name !== 'AbortError') toast('השיתוף לא הצליח. אפשר לשמור PDF'); } });
 
-// ---- navigation: the other views stay owned by app.js ----
+// ---- navigation: the editor view stays owned by app.js ----
 const nav = $('open-price-tags');
 function setPressed(b, on) { b.classList.toggle('active', on); b.setAttribute('aria-pressed', String(on)); }
 function open() {
   if (!$('price-view').hidden) return;
-  navSnapshot = [...document.querySelectorAll('.header-nav [data-type]')].map(b => [b, b.classList.contains('active')]);
-  navSnapshot.forEach(([b]) => setPressed(b, false)); setPressed(nav, true);
-  $('editor-view').hidden = true; $('library-view').hidden = true; $('action-bar').hidden = true; $('price-view').hidden = false;
+  document.querySelectorAll('.header-nav [data-type]').forEach(b => setPressed(b, false)); setPressed(nav, true);
+  $('editor-view').hidden = true; $('action-bar').hidden = true; $('price-view').hidden = false;
   window.scrollTo(0, 0); renderList();
 }
-function leave(restoreNav) {
-  if ($('price-view').hidden) return;
-  $('price-view').hidden = true; setPressed(nav, false);
-  if (restoreNav) navSnapshot?.forEach(([b, on]) => setPressed(b, on));
-}
+// Type buttons re-render their own pressed state and show the editor in app.js.
+function leave() { $('price-view').hidden = true; setPressed(nav, false); }
 nav.addEventListener('click', open);
-// Type buttons re-render their own pressed state in app.js; the library keeps the previous one.
-document.querySelectorAll('.header-nav [data-type]').forEach(b => b.addEventListener('click', () => leave(false)));
-$('open-library').addEventListener('click', () => leave(true));
+document.querySelectorAll('.header-nav [data-type]').forEach(b => b.addEventListener('click', leave));
 document.fonts?.ready.then(() => { if (!$('price-view').hidden) refresh(); });

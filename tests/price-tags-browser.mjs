@@ -41,8 +41,6 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   eq(await page.locator('#pt-print-pages .print-sheet').count(), 2); ok(await page.evaluate(() => document.documentElement.classList.contains('pt-printing')));
   // The dialog's close event is dispatched as a separate task.
   await page.locator('#pt-close-print').click(); await page.waitForFunction(() => !document.documentElement.classList.contains('pt-printing')); ok(await page.locator('#pt-print-dialog').isHidden());
-  await page.locator('#open-library').click(); ok(await page.locator('#library-view').isVisible()); ok(await page.locator('#price-view').isHidden());
-  await page.locator('#library-back').click();
   await page.locator('#open-price-tags').click(); await page.locator(`[data-type=${activeType}]`).click();
   ok(await page.locator('#editor-view').isVisible()); ok(await page.locator('#action-bar').isVisible()); eq(await page.locator(`[data-type=${activeType}]`).getAttribute('aria-pressed'), 'true');
   eq(await page.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter(k => k !== 'signs-app:v1:price-tags').map(k => [k, localStorage.getItem(k)]))), before);

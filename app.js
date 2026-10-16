@@ -1,10 +1,10 @@
-import { VERSION, TEMPLATES, newDraft, cleanDraft, buildSign, previewSign, recommend, actualProfit, money, offerText, pagePlan } from './model.js';
+import { VERSION, TEMPLATES, newDraft, cleanDraft, buildSign, previewSign, recommend, actualProfit, money, pagePlan } from './model.js';
 import { previewCanvas, renderPage } from './familiar-render.js';
 import { canvasesToPDF } from './pdf.js';
 import { startScanner, prepareScanner } from './scanner.js';
-const $ = id => document.getElementById(id), PREFIX = 'signs-app:v1:', ITEM = PREFIX + 'item:', WORK = PREFIX + 'workspace', CLEAR_UNDO = PREFIX + 'clear-undo';
+const $ = id => document.getElementById(id), PREFIX = 'signs-app:v1:', WORK = PREFIX + 'workspace', CLEAR_UNDO = PREFIX + 'clear-undo';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let entries = [], saved = [], selected = new Set(), layout = '4', type = 'indoor', pages = [], imageFiles = [], imageReady = Promise.resolve(), imageRevision = 0;
+let entries = [], layout = '4', type = 'indoor', pages = [], imageFiles = [], imageReady = Promise.resolve(), imageRevision = 0;
 let timer, refreshTimer, pdfFile = null, stopCamera = null, scanGeneration = 0, scanTarget = null;
 function storageError() { $('storage-warning').hidden = false; $('storage-warning').textContent = 'השמירה במכשיר אינה זמינה. אפשר להכין ולהדפיס, אך אין להסתמך על שמירה אוטומטית.'; }
 function read(key) { try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { storageError(); return null; } }
@@ -43,7 +43,7 @@ $('clear-all-signs').addEventListener('click',() => {
 $('undo-clear').addEventListener('click',() => {
   if (!clearUndo) return;
   const previous = clearUndo;
-  entries = previous.entries.map(e => entry(e?.draft,saved.some(s => s.id === e?.savedId) ? e.savedId : null,e?.skip === true));
+  entries = previous.entries.map(e => entry(e?.draft,typeof e?.savedId === 'string' ? e.savedId : null,e?.skip === true));
   layout = previous.layout; type = previous.type;
   discardClearUndo(); renderCards();
   $('clear-all-signs').focus({preventScroll:true});
@@ -134,7 +134,7 @@ $('cards').addEventListener('click',event => {
   else if (button.dataset.entry) { e.draft.entry = button.dataset.entry; renderCards(); }
   else if (button.dataset.template) { e.draft.template = button.dataset.template; renderCards(); }
   else if (button.hasAttribute('data-remove-code')) { e.draft.barcodes.splice(Number(button.dataset.removeCode),1); renderCards(); }
-  else if (button.dataset.action === 'remove') { if ((e.draft.title || e.draft.price || e.draft.free) && !confirm('להסיר את השלט מהעריכה? עותק שמור לא יימחק.')) return; entries = entries.filter(x => x !== e); if (!entries.length) entries = [entry({...newDraft(),type,store:e.draft.store})]; renderCards(); }
+  else if (button.dataset.action === 'remove') { if ((e.draft.title || e.draft.price || e.draft.free) && !confirm('להסיר את השלט מהעריכה?')) return; entries = entries.filter(x => x !== e); if (!entries.length) entries = [entry({...newDraft(),type,store:e.draft.store})]; renderCards(); }
   else if (button.dataset.action === 'copy') { if (entries.length >= 30) return toast('אפשר עד 30 שלטים בכל עריכה'); entries.splice(entries.indexOf(e)+1,0,entry(e.draft)); renderCards(); }
   else if (button.dataset.action === 'apply') { try { const d = e.draft, r = recommend(d.cost,d.vat,d.margin,d.kind === 'bundle' ? d.quantity : 1,d.rounding,d.profitMode); d.price = r.total.toFixed(2); renderCards(); } catch(err) { toast(err.message); } }
   else if (button.dataset.action === 'add-code') addCode(e,button.closest('[data-uid]').querySelector('[data-code-input]').value);
@@ -145,27 +145,7 @@ document.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click'
 document.querySelectorAll('[data-layout]').forEach(b => b.addEventListener('click',() => { layout = b.dataset.layout; renderCards(); }));
 $('print-all').addEventListener('click',() => { entries.forEach(e => e.skip = false); renderCards(); $('preview-print').focus({preventScroll:true}); });
 function addCode(e, value) { const code = String(value || '').trim(); if (!e || !/^[\x20-\x7e]{1,32}$/.test(code)) return toast('ברקוד לא תקין — עד 32 תווים ללא עברית'); if (e.draft.barcodes.includes(code)) return toast('הברקוד כבר מופיע'); if (e.draft.barcodes.length >= 24) return toast('אפשר עד 24 ברקודים לשלט'); discardClearUndo(); e.draft.barcodes.push(code); renderCards(); }
-function loadSaved() {
-  const items = [];
-  try { for (let i=0;i<localStorage.length;i++) { const key=localStorage.key(i); if (!key?.startsWith(ITEM)) continue; const item=read(key); if (!item || item.id !== key.slice(ITEM.length)) continue; try { item.draft=cleanDraft(item.draft); item.sign=buildSign(item.draft); items.push(item); } catch {} } } catch { storageError(); }
-  saved=items.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)); selected=new Set([...selected].filter(id=>saved.some(s=>s.id===id))); renderSaved();
-}
-function renderSaved() {
-  $('library-count').textContent=String(saved.length); $('library-list').replaceChildren();
-  if (!saved.length) $('library-list').innerHTML='<div class="empty-state">אין עדיין שלטים שמורים. אפשר להדפיס ישירות ממסך העריכה, בלי לשמור לרשימה.</div>';
-  saved.forEach(s=>{ const row=document.createElement('article'); row.className='saved-sign'; row.innerHTML=`<input type="checkbox" aria-label="בחירת ${esc(s.sign.title)}" ${selected.has(s.id)?'checked':''}><canvas aria-hidden="true"></canvas><div class="saved-title"><h3>${esc(s.sign.title)}</h3><p>${esc(offerText(s.sign))}</p></div><div class="saved-actions"><button class="soft" data-edit>עריכה</button><button class="text-button" data-delete>מחיקה</button></div>`;
-    previewCanvas(row.querySelector('canvas'),s.sign); row.querySelector('input').addEventListener('change',ev=>{ev.target.checked?selected.add(s.id):selected.delete(s.id); updateSelection();});
-    row.querySelector('[data-edit]').addEventListener('click',()=>loadEntries([s])); row.querySelector('[data-delete]').addEventListener('click',()=>{if(!confirm(`למחוק את השלט ״${s.sign.title}״ מהרשימה?`))return;try{localStorage.removeItem(ITEM+s.id);entries.forEach(e=>{if(e.savedId===s.id)e.savedId=null;});loadSaved();persist();}catch{storageError();}}); $('library-list').append(row);
-  }); updateSelection();
-}
-function updateSelection() { $('load-selected').disabled=!selected.size; $('load-selected').textContent=selected.size?`ערוך נבחרים (${selected.size})`:'ערוך נבחרים'; $('select-all').checked=!!saved.length&&selected.size===saved.length; $('select-all').indeterminate=selected.size>0&&selected.size<saved.length; }
-function loadEntries(items) { if(items.length>30)return toast('אפשר לערוך עד 30 שלטים יחד'); if(entries.some(e=>e.draft.title||e.draft.price||e.draft.free)&&!confirm('להחליף את השלטים שבעריכה בבחירה הזאת? השינויים שלא שמרת ברשימה יוחלפו.'))return; discardClearUndo(); entries=items.map(s=>entry(s.draft,s.id));type=entries[0].draft.type;renderCards();showEditor();window.scrollTo(0,0); }
-function showEditor() { $('editor-view').hidden=false;$('library-view').hidden=true;$('action-bar').hidden=false; }
-function showLibrary() { loadSaved();$('editor-view').hidden=true;$('library-view').hidden=false;$('action-bar').hidden=true;window.scrollTo(0,0); }
-$('open-library').addEventListener('click',showLibrary);$('back').addEventListener('click',showLibrary);$('library-back').addEventListener('click',showEditor);
-$('select-all').addEventListener('change',ev=>{selected=new Set(ev.target.checked?saved.map(s=>s.id):[]);renderSaved();});$('load-selected').addEventListener('click',()=>loadEntries(saved.filter(s=>selected.has(s.id))));
-$('save-sign').addEventListener('click',()=>{if(!validated(true))return;const fresh=entries.filter(e=>!e.savedId||!saved.some(s=>s.id===e.savedId)).length;if(saved.length+fresh>150)return toast('הרשימה מלאה — יש לגבות ולמחוק שלטים ישנים');let count=0;for(const e of entries){const id=e.savedId||crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:cleanDraft(e.draft)}))break;e.savedId=id;count++;}persist();loadSaved();toast(`נשמרו ${count} שלטים במכשיר`);});
-window.addEventListener('storage',ev=>{if(ev.key?.startsWith(ITEM)||ev.key===null){loadSaved();toast('רשימת השלטים עודכנה. השלטים שבעריכה לא הוחלפו');}});
+function showEditor() { $('editor-view').hidden=false;$('action-bar').hidden=false; }
 function download(blob,name){const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),120000);}
 async function readyImages(){if(refreshTimer)refresh();await imageReady;if(!imageFiles.length)throw new Error('התמונות עדיין אינן מוכנות');return imageFiles;}
 async function saveImages(){if(!validated())return;try{for(const f of await readyImages())download(f,f.name);}catch(err){error(err.message);}}
@@ -178,9 +158,7 @@ async function openScanner(uid){closeCamera();scanTarget=uid;const generation=sc
 $('cards').addEventListener('toggle',ev=>{if(ev.target.matches('.barcode-details')&&ev.target.open)prepareScanner();},true);
 $('close-scan').addEventListener('click',()=>$('scan-dialog').close());$('scan-dialog').addEventListener('close',closeCamera);window.addEventListener('pagehide',closeCamera);document.addEventListener('visibilitychange',()=>{if(document.hidden){closeCamera();if($('scan-dialog').open)$('scan-dialog').close();}});
 $('settings').addEventListener('click',()=>{$('store-setting').value=entries[0].draft.store;$('settings-dialog').showModal();});$('close-settings').addEventListener('click',()=>$('settings-dialog').close());$('save-settings').addEventListener('click',()=>{discardClearUndo();entries.forEach(e=>e.draft.store=$('store-setting').value.trim());$('settings-dialog').close();renderCards();});
-$('backup').addEventListener('click',()=>download(new Blob([JSON.stringify({app:'signs-app',version:1,signs:saved.map(({id,updatedAt,draft})=>({id,updatedAt,draft}))},null,2)],{type:'application/json'}),'signs-backup.json'));
-$('restore').addEventListener('click',()=>$('restore-file').click());$('restore-file').addEventListener('change',async ev=>{const file=ev.target.files[0];if(!file)return;try{if(file.size>2000000)throw new Error('קובץ הגיבוי גדול מדי');const data=JSON.parse(await file.text());if(data.app!=='signs-app'||data.version!==1||!Array.isArray(data.signs)||data.signs.length>150)throw new Error('זה אינו גיבוי נתמך');const incoming=data.signs.map(s=>{if(!s?.draft)throw new Error('שלט לא תקין בגיבוי');const d=cleanDraft(s.draft);buildSign(d);return d;});if(incoming.length+saved.length>150)throw new Error('אין מספיק מקום ברשימה');if(!confirm(`לייבא ${incoming.length} שלטים כעותקים חדשים? הקיימים לא יימחקו.`))return;let n=0;for(const d of incoming){const id=crypto.randomUUID();if(!write(ITEM+id,{id,updatedAt:Date.now(),draft:d}))break;n++;}loadSaved();toast(`יובאו ${n} שלטים`);}catch(err){toast(err.message);}finally{$('restore-file').value='';}});
 await document.fonts?.load('900 100px "Outdoor Black"', 'מבצע לחמניות ₪ 12.90').catch(()=>{});
-renderCards();loadSaved();document.fonts?.ready.then(()=>{refresh();renderSaved();});
+renderCards();document.fonts?.ready.then(refresh);
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').then(r=>r.update().catch(()=>{})).catch(()=>{});
 document.documentElement.dataset.version=VERSION;
