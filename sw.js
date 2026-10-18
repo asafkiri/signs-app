@@ -1,5 +1,5 @@
-const CACHE = 'signs-app-shell-v1.13.1';
-const SHELL = ['./', './index.html', './styles.css?v=1.10.0', './app.js?v=1.10.0', './model.js', './render.js', './outdoor.js', './assets/fonts/Heebo-Variable.ttf', './indoor.js', './promo-badge.js', './familiar-render.js', './pdf.js', './price-tags.js?v=1.13.1', './price-tags-model.js', './scanner.js', './manifest.webmanifest', './icon.svg'];
+const CACHE = 'signs-app-shell-v1.13.2';
+const SHELL = ['./', './index.html', './styles.css?v=1.10.0', './app.js?v=1.10.0', './model.js', './render.js', './outdoor.js', './assets/fonts/Heebo-Variable.ttf', './indoor.js', './promo-badge.js', './familiar-render.js', './pdf.js', './price-tags.js?v=1.13.2', './price-tags-model.js', './scanner.js', './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); });
 // No skipWaiting: do not replace modules in an open editing session.
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('signs-app-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim())); });

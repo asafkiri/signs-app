@@ -1,5 +1,5 @@
 // "שלטי מחיר" tab. Self-contained: own state, storage key, preview and print dialog.
-import { TAG_SIZES, PER, MEASURES, MAX_TAGS, newTag, cleanState, checkTag, priceParts, tagPages } from './price-tags-model.js';
+import { TAG_SIZES, PER, MAX_TAGS, newTag, cleanState, checkTag, priceParts, tagPages } from './price-tags-model.js';
 import { canvasesToPDF } from './pdf.js';
 import { startScanner } from './scanner.js';
 const $ = id => document.getElementById(id), KEY = 'signs-app:v1:price-tags';
@@ -30,13 +30,12 @@ function fitLines(c, str, maxW, maxH, maxSize, maxLines, weight = 800) {
 function drawTag(c, t, x, y, w, h) {
   const ink = '#000';
   const pad = Math.round(Math.min(w, h) * .07), ix = x + pad, iw = w - pad * 2, iy = y + pad * .8, ih = h - pad * 1.6;
-  const info = [t.size, t.unitPrice].filter(Boolean).join(' · ');
-  // Name on top, a short rule, the price under it, then pack details and barcode: one column reads as one tag.
+  // Name on top, a short rule, the price under it, then the barcode: one column reads as one tag.
   // Very long, low strips give the price more of the height so it stays the biggest thing on the tag.
-  const strip = w / h > 2.2, footer = info ? ih * (strip ? .12 : .14) : 0, code = t.barcode ? Math.max(ih * (strip ? .08 : .09), 30) : 0;
+  const strip = w / h > 2.2, code = t.barcode ? Math.max(ih * (strip ? .08 : .09), 30) : 0;
   const nameH = ih * (strip ? .28 : w / h > 1.6 ? .4 : .34), priceTop = iy + nameH + ih * .04;
-  const nameBox = { x: ix, y: iy, w: iw, h: nameH }, priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - footer - code - ih * .04 };
-  const infoBox = { x: ix, y: iy + ih - code - footer, w: iw, h: footer }, codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
+  const nameBox = { x: ix, y: iy, w: iw, h: nameH }, priceBox = { x: ix, y: priceTop, w: iw, h: ih - nameH - code - ih * .04 };
+  const codeBox = { x: ix, y: iy + ih - code, w: iw, h: code };
   const rule = { x: x + w * .3, y: iy + nameH + ih * .01, w: w * .4, h: Math.max(2, ih * .012) };
   c.save(); c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = ink;
   const name = fitLines(c, t.name, nameBox.w, nameBox.h, Math.min(nameBox.h * .48, ih * .4), 2);
@@ -73,11 +72,6 @@ function drawTag(c, t, x, y, w, h) {
     if (p.kind === 'agorot') c.fillRect(cx, base - cap + s * .48 * .72 + s * .05, p.w, Math.max(2, s * .035));
     cx += p.w + p.gap;
   }
-  if (infoBox.h) {
-    c.direction = 'rtl'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    const fit = fitLines(c, info, infoBox.w, infoBox.h, infoBox.h * .8, 1, 700);
-    c.font = `700 ${fit.size}px ${FONT}`; c.fillText(fit.lines[0], infoBox.x + infoBox.w / 2, infoBox.y + infoBox.h / 2);
-  }
   if (codeBox.h) {
     // Barcode number only, left-to-right so leading zeros and symbols print as typed.
     c.direction = 'ltr'; c.textAlign = 'center'; c.textBaseline = 'middle';
@@ -104,7 +98,7 @@ const options = (list, active) => list.map(([v, label]) => `<option value="${v}"
 function row(t, i) {
   return `<article class="pt-row${t.skip ? ' skipped' : ''}" data-i="${i}">
   <div class="pt-line"><input type="checkbox" data-k="print" ${t.skip ? '' : 'checked'} aria-label="להדפסה, שורה ${i + 1}"><input data-k="name" value="${esc(t.name)}" maxlength="60" placeholder="שם המוצר" aria-label="שם המוצר, שורה ${i + 1}" autocomplete="off"><input data-k="price" class="pt-price" value="${esc(t.price)}" maxlength="10" inputmode="decimal" dir="ltr" placeholder="₪ 0.00" aria-label="מחיר, שורה ${i + 1}" autocomplete="off"></div>
-  <div class="pt-line pt-extra"><select data-k="per" aria-label="המחיר הוא">${options(PER, t.per)}</select><input data-k="amount" value="${esc(t.amount)}" maxlength="10" inputmode="decimal" dir="ltr" placeholder="גודל" aria-label="גודל האריזה (רשות)" autocomplete="off"><select data-k="measure" aria-label="יחידת גודל">${options(MEASURES, t.measure)}</select><label class="pt-copies">×<input data-k="copies" value="${esc(t.copies)}" maxlength="2" inputmode="numeric" dir="ltr" aria-label="עותקים"></label><button type="button" data-remove class="pt-remove" aria-label="מחיקת שורה ${i + 1}">×</button></div>
+  <div class="pt-line pt-extra"><select data-k="per" aria-label="המחיר הוא">${options(PER, t.per)}</select><label class="pt-copies">×<input data-k="copies" value="${esc(t.copies)}" maxlength="2" inputmode="numeric" dir="ltr" aria-label="עותקים"></label><button type="button" data-remove class="pt-remove" aria-label="מחיקת שורה ${i + 1}">×</button></div>
   <div class="pt-line pt-extra"><input data-k="barcode" value="${esc(t.barcode)}" maxlength="32" inputmode="numeric" dir="ltr" placeholder="ברקוד (רשות)" aria-label="ברקוד, שורה ${i + 1}" autocomplete="off"><button type="button" data-scan class="pt-scan">סריקה</button></div>
   <p class="pt-row-error" role="alert" hidden></p></article>`;
 }
@@ -136,7 +130,7 @@ function refresh() {
 function schedule() { persist(); clearTimeout(timer); timer = setTimeout(refresh, 200); }
 function addRow(focus = true) {
   if (state.tags.length >= MAX_TAGS) return toast(`אפשר עד ${MAX_TAGS} מוצרים ברשימה`);
-  const last = state.tags.at(-1); state.tags.push({ ...newTag(), per: last?.per || '', measure: last?.measure || 'g' }); renderList();
+  const last = state.tags.at(-1); state.tags.push({ ...newTag(), per: last?.per || '' }); renderList();
   if (focus) $('pt-list').lastElementChild.querySelector('[data-k=name]').focus();
 }
 const indexOf = el => Number(el.closest('[data-i]')?.dataset.i);

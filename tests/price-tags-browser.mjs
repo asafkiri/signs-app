@@ -20,7 +20,7 @@ export async function checkPriceTags({ page, name, out, ok, eq, load }) {
   await page.keyboard.type('גבינה צהובה');
   await row(1).locator('[data-k=price]').fill('54.90');
   await row(1).locator('[data-k=per]').selectOption('kg');
-  await row(0).locator('[data-k=amount]').fill('80');
+  eq(await page.locator('[data-k=amount], [data-k=measure]').count(), 0);
   await row(0).locator('[data-k=copies]').fill('3');
   await row(0).locator('[data-k=barcode]').fill('7290000066318');
   await page.locator('[data-size="10"]').click();
