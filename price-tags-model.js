@@ -10,15 +10,15 @@ export const TAG_SIZES = [
   { id: '24', cols: 3, rows: 8 }
 ];
 export const PER = [['', 'בלי יחידה'], ['unit', 'ליח׳'], ['kg', 'לק״ג'], ['100g', 'ל־100 גרם'], ['pack', 'למארז']];
-export const MEASURES = [['g', 'גרם'], ['kg', 'ק״ג'], ['ml', 'מ״ל'], ['l', 'ליטר'], ['units', 'יח׳']];
 export const MAX_TAGS = 200, MAX_COPIES = 50, MAX_PAGES = 40;
 const enumOf = (list, value, fallback) => list.some(([v]) => v === value) ? value : fallback;
 const text = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
-export function newTag() { return { name: '', price: '', per: '', amount: '', measure: 'g', copies: '1', barcode: '', skip: false }; }
+export function newTag() { return { name: '', price: '', per: '', copies: '1', barcode: '', skip: false }; }
+// Pack size fields from older lists (amount, measure) are dropped here.
 export function cleanTag(input = {}) {
   const t = input && typeof input === 'object' ? input : {};
-  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, ''), amount: text(t.amount, 10), measure: enumOf(MEASURES, t.measure, 'g'), copies: text(t.copies, 3) || '1', barcode: text(t.barcode, 32), skip: t.skip === true };
+  return { name: text(t.name, 60), price: text(t.price, 10), per: enumOf(PER, t.per, ''), copies: text(t.copies, 3) || '1', barcode: text(t.barcode, 32), skip: t.skip === true };
 }
 export function cleanState(input) {
   const s = input && typeof input === 'object' ? input : {};
@@ -33,18 +33,7 @@ export function parseNumber(value, decimals = 2, max = 99999) {
   const n = Number(raw.replace(',', '.'));
   return n > 0 && n <= max ? n : NaN;
 }
-const fixed = n => n.toFixed(2);
-const amountText = n => String(Number(n.toFixed(3)));
 export function perLabel(per) { return per ? PER.find(([v]) => v === per)[1] : ''; }
-export function sizeText(amount, measure) { return `${amountText(amount)} ${MEASURES.find(([v]) => v === measure)[1]}`; }
-
-// Price per 100 g / 100 ml (or per unit) for packaged goods sold by the item.
-export function unitPriceText(price, amount, measure) {
-  if (!(price > 0) || !(amount > 0)) return '';
-  if (measure === 'units') return amount === 1 ? '' : `${fixed(price / amount)} ₪ ליח׳`;
-  const base = measure === 'kg' || measure === 'l' ? amount * 1000 : amount;
-  return `${fixed(price / base * 100)} ₪ ל־100 ${measure === 'g' || measure === 'kg' ? 'גרם' : 'מ״ל'}`;
-}
 
 // {empty} rows are ignored, {error} rows block only themselves.
 export function checkTag(input) {
@@ -54,14 +43,10 @@ export function checkTag(input) {
   const price = parseNumber(t.price);
   if (!t.price) return { error: 'חסר מחיר' };
   if (Number.isNaN(price)) return { error: 'מחיר לא תקין' };
-  let amount = null;
-  if (t.amount) { amount = parseNumber(t.amount, 3); if (Number.isNaN(amount)) return { error: 'גודל האריזה לא תקין' }; }
   const copies = /^\d{1,2}$/.test(t.copies) ? Number(t.copies) : NaN;
   if (!(copies >= 1 && copies <= MAX_COPIES)) return { error: `מספר עותקים בין 1 ל־${MAX_COPIES}` };
   if (t.barcode && !/^[\x20-\x7e]{1,32}$/.test(t.barcode)) return { error: 'ברקוד לא תקין — עד 32 תווים ללא עברית' };
-  // Weighed goods (per kg / 100 g) already state their measure; a pack size would mislead.
-  const packaged = !['kg', '100g'].includes(t.per) && amount;
-  return { tag: { name: t.name, price, per: perLabel(t.per), size: packaged ? sizeText(amount, t.measure) : '', unitPrice: packaged ? unitPriceText(price, amount, t.measure) : '', barcode: t.barcode }, copies };
+  return { tag: { name: t.name, price, per: perLabel(t.per), barcode: t.barcode }, copies };
 }
 
 export function priceParts(price) {

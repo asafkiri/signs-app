@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TAG_SIZES, cleanState, checkTag, parseNumber, unitPriceText, priceParts, tagPages, newTag, MAX_PAGES } from '../price-tags-model.js';
+import { TAG_SIZES, cleanState, checkTag, parseNumber, priceParts, tagPages, newTag, MAX_PAGES } from '../price-tags-model.js';
 const tag = o => checkTag({ ...newTag(), name: 'במבה', price: '4.5', ...o });
 test('empty rows are ignored, partial rows report what is missing', () => {
   assert.deepEqual(checkTag(newTag()), { empty: true });
@@ -14,17 +14,11 @@ test('comma decimals and agorot split', () => {
   assert.deepEqual(priceParts(12.9), { shekels: '12', agorot: '90' });
   assert.deepEqual(priceParts(8), { shekels: '8', agorot: '' });
 });
-test('unit price per 100 g / 100 ml / unit', () => {
-  assert.equal(unitPriceText(4.5, 80, 'g'), '5.63 ₪ ל־100 גרם');
-  assert.equal(unitPriceText(7.9, 1.5, 'l'), '0.53 ₪ ל־100 מ״ל');
-  assert.equal(unitPriceText(14.9, 12, 'units'), '1.24 ₪ ליח׳');
-  assert.equal(unitPriceText(5, 1, 'units'), '');
-  const t = tag({ amount: '80', measure: 'g', per: 'unit' }).tag;
-  assert.deepEqual([t.per, t.size, t.unitPrice], ['ליח׳', '80 גרם', '5.63 ₪ ל־100 גרם']);
-});
-test('weighed goods never show a pack size', () => {
-  const t = tag({ per: 'kg', amount: '500', measure: 'g' }).tag;
-  assert.equal(t.size, ''); assert.equal(t.unitPrice, ''); assert.equal(t.per, 'לק״ג');
+test('tags carry the unit label and no pack size, even from older lists', () => {
+  assert.deepEqual(tag({ per: 'unit', amount: 'abc', measure: 'g' }), { tag: { name: 'במבה', price: 4.5, per: 'ליח׳', barcode: '' }, copies: 1 });
+  assert.equal(tag({ per: 'kg' }).tag.per, 'לק״ג');
+  const old = cleanState({ tags: [{ name: 'במבה', price: '4.5', amount: '80', measure: 'g' }] }).tags[0];
+  assert.equal('amount' in old, false); assert.equal('measure' in old, false);
 });
 test('copies expand and fill pages of the chosen grid', () => {
   const { size, pages } = tagPages([tag({ copies: '3' }), tag({})], '10');
@@ -33,8 +27,8 @@ test('copies expand and fill pages of the chosen grid', () => {
   assert.throws(() => tagPages(Array(MAX_PAGES * 4 + 1).fill(tag({})), '4'));
 });
 test('stored state never trusts unknown values', () => {
-  const s = cleanState({ size: '999', style: 'neon', tags: [{ name: 'x'.repeat(200), per: 'evil', measure: 'bad', skip: 'yes' }] });
-  assert.equal(s.size, '12'); assert.equal('style' in s, false); assert.equal(s.tags[0].name.length, 60); assert.equal(s.tags[0].per, ''); assert.equal(s.tags[0].measure, 'g'); assert.equal(s.tags[0].skip, false);
+  const s = cleanState({ size: '999', style: 'neon', tags: [{ name: 'x'.repeat(200), per: 'evil', skip: 'yes' }] });
+  assert.equal(s.size, '12'); assert.equal('style' in s, false); assert.equal(s.tags[0].name.length, 60); assert.equal(s.tags[0].per, ''); assert.equal(s.tags[0].skip, false);
   assert.equal(cleanState(null).tags.length, 1);
 });
 test('barcode is optional, kept as typed, Hebrew rejected', () => {
